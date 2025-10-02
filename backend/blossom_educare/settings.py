@@ -14,8 +14,9 @@ from pathlib import Path
 import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-
+# BASE_DIR is currently [Project Root]/backend/blossom_educare.
+# We need to go up three levels to reach the top project directory (e.g., D:\dayta\django-app)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent # **MODIFIED: Added an extra .parent**
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -24,9 +25,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-jy4=9zww0@ybx^xy(+fvx@rdyth!ean7w*_c$(bip*(2fqh=3e')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+# IMPORTANT: Set DEBUG to True for local development
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Allow requests from all local sources in debug mode
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,.replit.dev').split(',')
 
 
 # Application definition
@@ -61,7 +64,8 @@ ROOT_URLCONF = 'blossom_educare.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'frontend')],
+        # TEMPLATES DIRS points to the frontend folder at the project root
+        'DIRS': [os.path.join(PROJECT_ROOT, 'frontend')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -79,28 +83,32 @@ WSGI_APPLICATION = 'blossom_educare.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# --- MODIFIED: Restored PostgreSQL configuration as requested ---
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',          # Replace with your PostgreSQL database name
-        'USER': 'voterdata',          # Replace with your PostgreSQL username
-        'PASSWORD': 'AkhandFoundation_VoterData',  # Replace with your PostgreSQL password
-        'HOST': '69.62.124.103',             # Or your DB host's IP address
-        'PORT': '5450',                  # Default PostgreSQL port
+        'NAME': 'postgres',          # Your PostgreSQL database name
+        'USER': 'voterdata',          # Your PostgreSQL username
+        'PASSWORD': 'AkhandFoundation_VoterData',  # Your PostgreSQL password
+        'HOST': '69.62.124.103',             # Your DB host's IP address
+        'PORT': '5450',                  # PostgreSQL port
     }
 }
+# ------------------------------------------------------------------
 
 # Caching Configuration
+# --- MODIFIED: Restored Redis configuration as requested ---
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        # Replace with your actual Redis credentials and host
+        # Your Redis connection string
         "LOCATION": "redis://default:rSTgDqiD93Od0eRyOtuitCmGdLOhsvPB9HdbABHdFT7UXFD922KZgOZ1gvFtFV3n@69.62.124.103:8767/0",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
     }
 }
+# ----------------------------------------------------------
 
 
 # Password validation
@@ -123,7 +131,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i1n/
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
@@ -138,9 +146,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(PROJECT_ROOT, 'staticfiles') # Use PROJECT_ROOT
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'frontend'),
+    os.path.join(PROJECT_ROOT, 'frontend'), # Use PROJECT_ROOT to correctly point to /frontend
 ]
 
 
@@ -151,11 +159,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True # Good for initial setup
-# More specific setting to allow requests from local files
-# CORS_ALLOWED_ORIGINS = [
-#     "null",
-# ]
-
 
 # Django REST Framework configuration
 
@@ -171,5 +174,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 50 # You can adjust this number
 }
 
-# CSRF Trusted Origins for production
+# CSRF Trusted Origins for local development
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost,http://127.0.0.1').split(',')
+
+# --- NOTE: Frontend API URL is set in frontend/js/api.js to http://127.0.0.1:8000/ ---
