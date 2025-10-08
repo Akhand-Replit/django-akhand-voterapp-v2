@@ -132,28 +132,6 @@ async function updateRecord(recordId, recordData) {
     return response.json();
 }
 
-// --- NEW: API FUNCTION TO SYNC MULTIPLE CHANGES ---
-async function syncOfflineChanges(changes) {
-    const token = localStorage.getItem('authToken');
-    if (!token) throw new Error('Authentication token not found.');
-
-    const response = await fetch(`${API_BASE_URL}/api/sync-records/`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Token ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(changes),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to sync changes.');
-    }
-    return response.json();
-}
-
-
 async function assignEventsToRecord(recordId, eventIds) {
     const token = localStorage.getItem('authToken');
     if (!token) throw new Error('Authentication token not found.');
@@ -343,69 +321,7 @@ async function getRecordsForEvent(eventId, url = null) {
     return response.json();
 }
 
-async function getAllRecords(progressCallback) {
-    const token = localStorage.getItem('authToken');
-    if (!token) throw new Error('Authentication token not found.');
-
-    const response = await fetch(`${API_BASE_URL}/api/all-records/`, {
-        headers: { 'Authorization': `Token ${token}` },
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to fetch all records.');
-    }
-
-    const reader = response.body.getReader();
-    const contentLength = +response.headers.get('Content-Length');
-    let receivedLength = 0;
-    const chunks = [];
-    
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            break;
-        }
-        chunks.push(value);
-        receivedLength += value.length;
-        if (progressCallback) {
-            progressCallback(receivedLength, contentLength || receivedLength);
-        }
-    }
-
-    const chunksAll = new Uint8Array(receivedLength);
-    let position = 0;
-    for (const chunk of chunks) {
-        chunksAll.set(chunk, position);
-        position += chunk.length;
-    }
-
-    const result = new TextDecoder("utf-8").decode(chunksAll);
-    return JSON.parse(result);
-}
-
-// --- NEW: Function to get all events for offline mode ---
-async function getAllEvents() {
-    const token = localStorage.getItem('authToken');
-    if (!token) throw new Error('Authentication token not found.');
-    const response = await fetch(`${API_BASE_URL}/api/all-events/`, {
-        headers: { 'Authorization': `Token ${token}` },
-    });
-    if (!response.ok) throw new Error('Failed to fetch all events.');
-    return response.json();
-}
-
-// --- NEW: Function to get all relationships for offline mode ---
-async function getAllFamilyRelationships() {
-    const token = localStorage.getItem('authToken');
-    if (!token) throw new Error('Authentication token not found.');
-    const response = await fetch(`${API_BASE_URL}/api/all-family-relationships/`, {
-        headers: { 'Authorization': `Token ${token}` },
-    });
-    if (!response.ok) throw new Error('Failed to fetch all family relationships.');
-    return response.json();
-}
-
-// --- NEW: Data Management API Functions ---
+// --- Data Management API Functions ---
 
 async function deleteFileData(batchId, fileName) {
     const token = localStorage.getItem('authToken');

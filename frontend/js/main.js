@@ -1,20 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Global State ---
-    let currentDataMode = 'direct'; // 'direct' or 'import'
-    let allImportedRecords = [];
-    let allImportedEvents = []; // --- NEW: For offline events ---
-    let allImportedFamilyRels = []; // --- NEW: For offline relationships ---
     let originalRecords = []; // Used for modals, holds the currently displayed page of records
-    let offlineChanges = {
-        updatedRecords: {},
-        newRecords: [],
-        newFamilyRels: [],
-        deletedFamilyRels: [],
-        newCallLogs: [],
-        eventAssignments: {}
-    };
     let currentAllDataParams = {};
-    let progressInterval = null;
     let currentRecordForFamily = null; 
     let selectedRelativeForFamily = null; 
 
@@ -26,9 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutButton = document.getElementById('logout-button');
     const sidebar = document.getElementById('sidebar');
     const mobileMenuButton = document.getElementById('mobile-menu-button');
-    const syncContainer = document.getElementById('sync-container');
-    const syncDataButton = document.getElementById('sync-data-button');
-    const syncStatus = document.getElementById('sync-status');
 
     const navLinks = {
         dashboard: document.getElementById('nav-dashboard'),
@@ -36,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         add: document.getElementById('nav-add'),
         upload: document.getElementById('nav-upload'),
         alldata: document.getElementById('nav-alldata'),
-        datamanagement: document.getElementById('nav-datamanagement'), // NEW
+        datamanagement: document.getElementById('nav-datamanagement'),
         events: document.getElementById('nav-events'),
         eventcollector: document.getElementById('nav-event-collector'),
         relationships: document.getElementById('nav-relationships'),
@@ -52,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         add: document.getElementById('add-page'),
         upload: document.getElementById('upload-page'),
         alldata: document.getElementById('alldata-page'),
-        datamanagement: document.getElementById('datamanagement-page'), // NEW
+        datamanagement: document.getElementById('datamanagement-page'),
         events: document.getElementById('events-page'),
         eventcollector: document.getElementById('event-collector-page'),
         relationships: document.getElementById('relationships-page'),
@@ -81,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const allDataStatus = document.getElementById('alldata-status');
     const allDataPaginationContainer = document.getElementById('alldata-pagination');
 
-    // Data Management Page Elements (NEW)
+    // Data Management Page Elements
     const dataManagementStatus = document.getElementById('data-management-status');
     const dmBatchSelect = document.getElementById('dm-batch-select');
     const dmFileSelect = document.getElementById('dm-file-select');
@@ -128,7 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventCollectorConnectedPagination = document.getElementById('event-collector-connected-pagination');
     let collectorConnectedRecordIds = new Set();
 
-
     // Other Page Elements
     const relTabs = document.querySelectorAll('.rel-tab-button');
     const relContentContainer = document.getElementById('relationships-content');
@@ -168,29 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventFilterResults = document.getElementById('event-filter-results');
     const eventFilterPagination = document.getElementById('event-filter-pagination');
     
-    // New Modal Elements
-    const modeSelectionModal = document.getElementById('mode-selection-modal');
-    const importModeBtn = document.getElementById('import-mode-btn');
-    const directModeBtn = document.getElementById('direct-mode-btn');
-    const modeLoadingStatus = document.getElementById('mode-loading-status');
-    const importProgressContainer = document.getElementById('import-progress-container');
-    const importProgressBar = document.getElementById('import-progress-bar');
-    const importDetailsContainer = document.getElementById('import-details-container');
-    const downloadedSizeEl = document.getElementById('downloaded-size');
-    const totalSizeEl = document.getElementById('total-size');
-    const downloadSpeedEl = document.getElementById('download-speed');
-    const timeLeftEl = document.getElementById('time-left');
-
     // --- Event Listeners ---
     if (loginForm) loginForm.addEventListener('submit', handleLogin);
     if (logoutButton) logoutButton.addEventListener('click', handleLogout);
-    if (syncDataButton) syncDataButton.addEventListener('click', handleSyncData);
     
     if(mobileMenuButton) mobileMenuButton.addEventListener('click', () => sidebar.classList.toggle('-translate-x-full'));
     Object.values(navLinks).forEach(link => link && link.addEventListener('click', handleNavigation));
-
-    if (importModeBtn) importModeBtn.addEventListener('click', handleImportMode);
-    if (directModeBtn) directModeBtn.addEventListener('click', handleDirectMode);
 
     if (searchForm) searchForm.addEventListener('submit', (e) => handleSearch(e));
     if (addRecordForm) addRecordForm.addEventListener('submit', handleAddRecord);
@@ -207,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addEventForm) addEventForm.addEventListener('submit', handleAddEvent);
     if (filterByEventButton) filterByEventButton.addEventListener('click', () => handleFilterByEvent());
     
-    // Data Management Listeners (NEW)
+    // Data Management Listeners
     if (dmBatchSelect) dmBatchSelect.addEventListener('change', handleDMFileSelectChange);
     if (deleteFileBtn) deleteFileBtn.addEventListener('click', handleDeleteFile);
     if (deleteBatchBtn) deleteBatchBtn.addEventListener('click', handleDeleteBatch);
@@ -218,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if(eventCollectorSearchForm) eventCollectorSearchForm.addEventListener('submit', (e) => handleEventCollectorSearch(e));
     if(eventCollectorSearchResults) eventCollectorSearchResults.addEventListener('click', handleEventConnectionClick);
     if(eventCollectorConnectedList) eventCollectorConnectedList.addEventListener('click', handleEventConnectionClick);
-
 
     // Modal Listeners
     if (modalCloseButton) modalCloseButton.addEventListener('click', () => editRecordModal.classList.add('hidden'));
@@ -250,22 +215,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Event Handlers ---
-    async function handleLogin(e) { e.preventDefault(); loginError.textContent = ''; const username = document.getElementById('username').value; const password = document.getElementById('password').value; try { const data = await loginUser(username, password); localStorage.setItem('authToken', data.token); showApp(); } catch (error) { loginError.textContent = error.message; } }
+    async function handleLogin(e) {
+        e.preventDefault();
+        loginError.textContent = '';
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        try {
+            const data = await loginUser(username, password);
+            localStorage.setItem('authToken', data.token);
+            showApp();
+        } catch (error) {
+            loginError.textContent = error.message;
+        }
+    }
     
     function handleLogout() { 
         localStorage.removeItem('authToken'); 
-        resetState();
         showLogin(); 
-    }
-
-    function resetState() {
-        currentDataMode = 'direct';
-        allImportedRecords = [];
-        allImportedEvents = [];
-        allImportedFamilyRels = [];
-        offlineChanges = { updatedRecords: {}, newRecords: [], newFamilyRels: [], deletedFamilyRels: [], newCallLogs: [], eventAssignments: {} };
-        if (syncContainer) syncContainer.classList.add('hidden');
-        if (syncStatus) syncStatus.textContent = '';
     }
     
     function handleNavigation(e) {
@@ -283,150 +249,27 @@ document.addEventListener('DOMContentLoaded', () => {
         navigateTo(pageName.replace('-', '')); // Adjust for event-collector
     }
 
-
-    async function handleImportMode() {
-        modeLoadingStatus.innerHTML = 'Starting data import... This may take a few moments.';
-        modeLoadingStatus.classList.remove('hidden');
-        importProgressContainer.classList.remove('hidden');
-        importDetailsContainer.classList.remove('hidden');
-        importProgressBar.style.width = '0%';
-        downloadedSizeEl.textContent = '0 MB';
-        totalSizeEl.textContent = '... MB';
-        downloadSpeedEl.textContent = '... MB/s';
-        timeLeftEl.textContent = '... s';
-        importModeBtn.disabled = true;
-        directModeBtn.disabled = true;
-        let lastLoaded = 0;
-        let lastTime = Date.now();
-    
-        const progressCallback = (loaded, total) => {
-            const now = Date.now();
-            const timeDiff = (now - lastTime) / 1000; 
-            const loadedDiff = loaded - lastLoaded;
-    
-            if (timeDiff > 0.5 || loaded === total) { 
-                const speed = loadedDiff / timeDiff;
-                downloadSpeedEl.textContent = `${(speed / 1024 / 1024).toFixed(2)} MB/s`;
-                if (speed > 0 && total > 0) {
-                    const timeLeft = (total - loaded) / speed;
-                    timeLeftEl.textContent = `${Math.round(timeLeft)}s`;
-                } else {
-                    timeLeftEl.textContent = 'N/A';
-                }
-                lastTime = now;
-                lastLoaded = loaded;
-            }
-            downloadedSizeEl.textContent = `${(loaded / 1024 / 1024).toFixed(2)} MB`;
-            if(total > 0){
-                totalSizeEl.textContent = `${(total / 1024 / 1024).toFixed(2)} MB`;
-                const percentage = total ? (loaded / total) * 100 : 0;
-                importProgressBar.style.width = `${percentage}%`;
-            } else {
-                totalSizeEl.textContent = `(Unknown total)`;
-                importProgressBar.style.width = `100%`;
-                importProgressBar.classList.add('bg-blue-400');
-            }
-        };
-    
-        try {
-            modeLoadingStatus.innerHTML = 'Downloading Records...';
-            const recordsPromise = getAllRecords(progressCallback);
-            
-            modeLoadingStatus.innerHTML = 'Downloading Events & Relationships...';
-            const eventsPromise = getAllEvents();
-            const relsPromise = getAllFamilyRelationships();
-            
-            const [recordsData, eventsData, relsData] = await Promise.all([recordsPromise, eventsPromise, relsPromise]);
-
-            allImportedRecords = recordsData;
-            allImportedEvents = eventsData; // --- NEW: Store events ---
-            allImportedFamilyRels = relsData; // --- NEW: Store relationships ---
-            currentDataMode = 'import';
-            
-            syncContainer.classList.remove('hidden');
-            updateSyncStatus();
-            
-            downloadedSizeEl.textContent = `${(lastLoaded / 1024 / 1024).toFixed(2)} MB`;
-            totalSizeEl.textContent = `${(lastLoaded / 1024 / 1024).toFixed(2)} MB`;
-            importProgressBar.style.width = '100%';
-            downloadSpeedEl.textContent = 'Done!';
-            timeLeftEl.textContent = '0s';
-            modeLoadingStatus.innerHTML = `<p class="text-green-600">${allImportedRecords.length} records, ${allImportedEvents.length} events, and ${allImportedFamilyRels.length} relationships loaded!</p>`;
-            
-            setTimeout(() => {
-                modeSelectionModal.classList.add('hidden');
-                appContainer.classList.remove('hidden');
-                navigateTo('dashboard');
-                updateDashboardStats();
-                importProgressContainer.classList.add('hidden');
-                importDetailsContainer.classList.add('hidden');
-                importProgressBar.style.width = '0%';
-            }, 2000);
-    
-        } catch (error) {
-            importProgressContainer.classList.add('hidden');
-            importDetailsContainer.classList.add('hidden');
-            modeLoadingStatus.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
-        } finally {
-            importModeBtn.disabled = false;
-            directModeBtn.disabled = false;
-        }
-    }
-
-    function handleDirectMode() {
-        currentDataMode = 'direct';
-        appContainer.classList.remove('hidden');
-        modeSelectionModal.classList.add('hidden');
-        syncContainer.classList.add('hidden');
-        navigateTo('dashboard');
-        updateDashboardStats();
-    }
-
-    async function handleSyncData() {
-        syncStatus.textContent = 'Syncing...';
-        syncDataButton.disabled = true;
-
-        try {
-            await syncOfflineChanges(offlineChanges);
-            syncStatus.textContent = 'Sync successful! Reloading...';
-            
-            resetState();
-            
-            setTimeout(() => {
-                handleImportMode(); 
-            }, 1500);
-
-        } catch (error) {
-            syncStatus.textContent = `Sync failed: ${error.message}`;
-            syncDataButton.disabled = false;
-        }
-    }
-
     async function handleSearch(e, pageOrUrl = 1) { 
         if (e) e.preventDefault(); 
         if (!searchResultsContainer) return; 
         searchResultsContainer.innerHTML = '<p class="text-gray-500">Searching...</p>'; 
         const params = { naam: document.getElementById('search-name').value, voter_no: document.getElementById('search-voter-no').value, pitar_naam: document.getElementById('search-father-name').value, thikana: document.getElementById('search-address').value, matar_naam: document.getElementById('search-mother-name').value, kromik_no: document.getElementById('search-kromik-no').value, pesha: document.getElementById('search-profession').value, phone_number: document.getElementById('search-phone').value };
-        if (currentDataMode === 'direct') {
-            let searchParams;
-            if (typeof pageOrUrl === 'string') {
-                searchParams = pageOrUrl;
-            } else {
-                 const apiParams = { naam__icontains: params.naam, voter_no: params.voter_no, pitar_naam__icontains: params.pitar_naam, thikana__icontains: params.thikana, matar_naam__icontains: params.matar_naam, kromik_no: params.kromik_no, pesha__icontains: params.pesha, phone_number__icontains: params.phone_number };
-                searchParams = Object.fromEntries(Object.entries(apiParams).filter(([_, v]) => v && v.trim() !== ''));
-            }
-            try { const data = await searchRecords(searchParams); originalRecords = data.results; displaySearchResults(data.results); displayPaginationControls(searchPaginationContainer, data.previous, data.next, (nextUrl) => handleSearch(null, nextUrl)); } catch (error) { searchResultsContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; } 
+        
+        let searchParams;
+        if (typeof pageOrUrl === 'string') {
+            searchParams = pageOrUrl;
         } else {
-            const filtered = filterImportedRecords(params);
-            const page = typeof pageOrUrl === 'number' ? pageOrUrl : 1;
-            const pageSize = 50; 
-            const start = (page - 1) * pageSize;
-            const end = start + pageSize;
-            const paginatedResults = filtered.slice(start, end);
-            originalRecords = paginatedResults;
-            displaySearchResults(paginatedResults);
-            displayClientSidePagination(searchPaginationContainer, page, filtered.length, pageSize, (nextPage) => handleSearch(null, nextPage));
+             const apiParams = { naam__icontains: params.naam, voter_no: params.voter_no, pitar_naam__icontains: params.pitar_naam, thikana__icontains: params.thikana, matar_naam__icontains: params.matar_naam, kromik_no: params.kromik_no, pesha__icontains: params.pesha, phone_number__icontains: params.phone_number };
+            searchParams = Object.fromEntries(Object.entries(apiParams).filter(([_, v]) => v && v.trim() !== ''));
         }
+        try { 
+            const data = await searchRecords(searchParams); 
+            originalRecords = data.results; 
+            displaySearchResults(data.results); 
+            displayPaginationControls(searchPaginationContainer, data.previous, data.next, (nextUrl) => handleSearch(null, nextUrl)); 
+        } catch (error) { 
+            searchResultsContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; 
+        } 
     }
 
     async function handleAddRecord(e) {
@@ -436,24 +279,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData(addRecordForm);
         const recordData = Object.fromEntries(formData.entries());
 
-        if (currentDataMode === 'import') {
-            const tempId = `new_${Date.now()}`;
-            recordData.id = tempId; 
-            offlineChanges.newRecords.push(recordData);
-            allImportedRecords.push(recordData);
-            addRecordSuccessMessage.textContent = 'Record added locally. Sync to save.';
+        try {
+            await addRecord(recordData);
+            addRecordSuccessMessage.textContent = 'Record added successfully!';
             addRecordForm.reset();
             updateDashboardStats();
-            updateSyncStatus();
-        } else {
-            try {
-                await addRecord(recordData);
-                addRecordSuccessMessage.textContent = 'Record added successfully!';
-                addRecordForm.reset();
-                updateDashboardStats();
-            } catch (error) {
-                alert(error.message);
-            }
+        } catch (error) {
+            alert(error.message);
         }
     }
     
@@ -463,17 +295,16 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadStatus.innerHTML = '<p class="text-blue-600">Uploading and processing file(s)...</p>';
         const batchName = document.getElementById('upload-batch-name').value;
         const fileInput = document.getElementById('upload-file');
-        const files = fileInput.files; // MODIFIED: Get all files
+        const files = fileInput.files;
         const genderInput = document.querySelector('input[name="gender"]:checked');
         const gender = genderInput ? genderInput.value : null;
     
-        if (!batchName || files.length === 0 || !gender) { // MODIFIED: Check files.length
+        if (!batchName || files.length === 0 || !gender) {
             uploadStatus.innerHTML = '<p class="text-red-600">Please provide a batch name, select at least one file, and choose a gender.</p>';
             return;
         }
     
         try {
-            // MODIFIED: Pass the 'files' object directly
             const result = await uploadData(batchName, files, gender); 
             uploadStatus.innerHTML = `<p class="text-green-600">${result.message}</p>`;
             uploadDataForm.reset();
@@ -491,28 +322,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileName = allDataFileSelect.value; 
         allDataTableContainer.innerHTML = '<p class="p-4 text-gray-500">Loading records...</p>'; 
         if (!batchId) return; 
-        if (currentDataMode === 'direct') {
-            let params; 
-            if (typeof pageOrUrl === 'string') { params = pageOrUrl; } else { currentAllDataParams = { batch: batchId }; if (fileName && fileName !== 'all') { currentAllDataParams.file_name = fileName; } params = currentAllDataParams; } 
-            try { const data = await searchRecords(params); originalRecords = data.results; renderReadOnlyTable(data.results); displayPaginationControls(allDataPaginationContainer, data.previous, data.next, (nextUrl) => handleAllDataFileSelect(nextUrl)); } catch (error) { allDataTableContainer.innerHTML = `<p class="p-4 text-red-500">${error.message}</p>`; }
-        } else {
-            const params = { batch: batchId };
-            if (fileName && fileName !== 'all') params.file_name = fileName;
-            const filtered = filterImportedRecords(params);
-            const page = typeof pageOrUrl === 'number' ? pageOrUrl : 1;
-            const pageSize = 50;
-            const start = (page - 1) * pageSize;
-            const end = start + pageSize;
-            const paginatedResults = filtered.slice(start, end);
-            originalRecords = paginatedResults;
-            renderReadOnlyTable(paginatedResults);
-            displayClientSidePagination(allDataPaginationContainer, page, filtered.length, pageSize, (nextPage) => handleAllDataFileSelect(nextPage));
+        
+        let params; 
+        if (typeof pageOrUrl === 'string') { 
+            params = pageOrUrl; 
+        } else { 
+            currentAllDataParams = { batch: batchId }; 
+            if (fileName && fileName !== 'all') { 
+                currentAllDataParams.file_name = fileName; 
+            } 
+            params = currentAllDataParams; 
+        } 
+        try { 
+            const data = await searchRecords(params); 
+            originalRecords = data.results; 
+            renderReadOnlyTable(data.results); 
+            displayPaginationControls(allDataPaginationContainer, data.previous, data.next, (nextUrl) => handleAllDataFileSelect(nextUrl)); 
+        } catch (error) { 
+            allDataTableContainer.innerHTML = `<p class="p-4 text-red-500">${error.message}</p>`; 
         }
     }
     
     async function openEditModal(recordId) {
-        const sourceData = currentDataMode === 'import' ? allImportedRecords : originalRecords;
-        const record = sourceData.find(r => r.id == recordId);
+        const record = originalRecords.find(r => r.id == recordId);
         
         if (!record) {
             alert('Could not find record details.');
@@ -543,8 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
         eventsContainer.innerHTML = 'Loading events...';
 
         try {
-            // --- NEW: Offline/Online logic for events ---
-            const allEvents = (currentDataMode === 'import') ? allImportedEvents : (await getEvents()).results;
+            const allEvents = (await getEvents()).results;
             
             eventsContainer.innerHTML = '';
             if (!allEvents || allEvents.length === 0) {
@@ -590,55 +421,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedEventIds = Array.from(document.querySelectorAll('#edit-events-checkboxes input:checked')).map(cb => cb.value);
         const statusContainer = document.querySelector('.active')?.id === 'alldata-page' ? allDataStatus : searchResultsContainer;
         
-        if (currentDataMode === 'import') {
-            // Step 1: Prepare changes for syncing.
-            // Use the original updatedData (without event_names) for syncing record fields.
-            offlineChanges.updatedRecords[recordId] = updatedData; 
-            // Handle event assignments separately for syncing.
-            offlineChanges.eventAssignments[recordId] = selectedEventIds;
-
-            // Step 2: Update the local data for immediate UI feedback.
-            const recordIndex = allImportedRecords.findIndex(r => r.id == recordId);
-            if (recordIndex > -1) {
-                // Update the plain fields first.
-                const updatedLocalRecord = { ...allImportedRecords[recordIndex], ...updatedData };
-
-                // Now, separately update the event_names for the UI.
-                const selectedEventNames = selectedEventIds.map(id => {
-                    const event = allImportedEvents.find(e => e.id == id);
-                    return event ? event.name : '';
-                }).filter(name => name);
-                updatedLocalRecord.event_names = selectedEventNames;
-
-                // Replace the old record with the fully updated one.
-                allImportedRecords[recordIndex] = updatedLocalRecord;
-            }
-            
-            statusContainer.innerHTML = `<p class="text-green-600">Record ${recordId} updated locally. Sync to save changes.</p>`;
+        statusContainer.innerHTML = `<p class="text-blue-600">Saving record ${recordId}...</p>`;
+        try {
+            await updateRecord(recordId, updatedData);
+            await assignEventsToRecord(recordId, selectedEventIds);
+            statusContainer.innerHTML = `<p class="text-green-600">Successfully saved record ${recordId}!</p>`;
             editRecordModal.classList.add('hidden');
-            updateSyncStatus();
-            
             if (document.querySelector('.active')?.id === 'alldata-page') {
-                handleAllDataFileSelect();
-            } else if (document.querySelector('.active')?.id === 'search-page') {
-                // Re-run the search to show the updated data
-                handleSearch(null);
+                 handleAllDataFileSelect(currentAllDataParams);
+            } else {
+                 handleSearch(null);
             }
-        } else {
-            statusContainer.innerHTML = `<p class="text-blue-600">Saving record ${recordId}...</p>`;
-            try {
-                await updateRecord(recordId, updatedData);
-                await assignEventsToRecord(recordId, selectedEventIds);
-                statusContainer.innerHTML = `<p class="text-green-600">Successfully saved record ${recordId}!</p>`;
-                editRecordModal.classList.add('hidden');
-                if (document.querySelector('.active')?.id === 'alldata-page') {
-                     handleAllDataFileSelect(currentAllDataParams);
-                } else {
-                     handleSearch(null);
-                }
-            } catch (error) {
-                statusContainer.innerHTML = `<p class="text-red-500">Error saving changes: ${error.message}</p>`;
-            }
+        } catch (error) {
+            statusContainer.innerHTML = `<p class="text-red-500">Error saving changes: ${error.message}</p>`;
         }
     }
     
@@ -662,35 +457,17 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadCurrentFamilyMembers(recordId) {
         currentFamilyMembersList.innerHTML = '<p class="text-gray-500 text-sm">Loading family members...</p>';
         try {
-            if (currentDataMode === 'import') {
-                const relationships = allImportedFamilyRels.filter(rel => rel.person == recordId);
-                currentFamilyMembersList.innerHTML = '';
-                if (relationships.length > 0) {
-                    relationships.forEach(rel => {
-                        const relativeRecord = allImportedRecords.find(rec => rec.id == rel.relative);
-                        if (relativeRecord) {
-                            const memberDiv = document.createElement('div');
-                            memberDiv.className = 'text-sm p-1.5 flex justify-between items-center';
-                            memberDiv.innerHTML = `<div><span class="font-semibold text-gray-700">${rel.relationship_type}:</span><span class="text-gray-600 ml-2">${relativeRecord.naam}</span></div><button data-id="${rel.id}" class="remove-relative-btn text-red-400 hover:text-red-600 text-xs">Remove</button>`;
-                            currentFamilyMembersList.appendChild(memberDiv);
-                        }
-                    });
-                } else {
-                    currentFamilyMembersList.innerHTML = '<p class="text-gray-500 text-sm">No family members added yet.</p>';
-                }
+            const data = await getFamilyTree(recordId);
+            currentFamilyMembersList.innerHTML = '';
+            if (data.results && data.results.length > 0) {
+                data.results.forEach(rel => {
+                    const memberDiv = document.createElement('div');
+                    memberDiv.className = 'text-sm p-1.5 flex justify-between items-center';
+                    memberDiv.innerHTML = `<div><span class="font-semibold text-gray-700">${rel.relationship_type}:</span><span class="text-gray-600 ml-2">${rel.relative.naam}</span></div><button data-id="${rel.id}" class="remove-relative-btn text-red-400 hover:text-red-600 text-xs">Remove</button>`;
+                    currentFamilyMembersList.appendChild(memberDiv);
+                });
             } else {
-                const data = await getFamilyTree(recordId);
-                currentFamilyMembersList.innerHTML = '';
-                if (data.results && data.results.length > 0) {
-                    data.results.forEach(rel => {
-                        const memberDiv = document.createElement('div');
-                        memberDiv.className = 'text-sm p-1.5 flex justify-between items-center';
-                        memberDiv.innerHTML = `<div><span class="font-semibold text-gray-700">${rel.relationship_type}:</span><span class="text-gray-600 ml-2">${rel.relative.naam}</span></div><button data-id="${rel.id}" class="remove-relative-btn text-red-400 hover:text-red-600 text-xs">Remove</button>`;
-                        currentFamilyMembersList.appendChild(memberDiv);
-                    });
-                } else {
-                    currentFamilyMembersList.innerHTML = '<p class="text-gray-500 text-sm">No family members added yet.</p>';
-                }
+                currentFamilyMembersList.innerHTML = '<p class="text-gray-500 text-sm">No family members added yet.</p>';
             }
              document.querySelectorAll('.remove-relative-btn').forEach(btn => btn.addEventListener('click', handleRemoveRelationship));
 
@@ -704,21 +481,9 @@ document.addEventListener('DOMContentLoaded', () => {
         familyMemberSearchResults.innerHTML = '';
         if (query.length < 2) return;
         
-        // --- NEW: Offline/Online logic for searching family members ---
-        const sourceData = (currentDataMode === 'import') ? allImportedRecords : null;
-        
         try {
-            let results = [];
-            if (sourceData) {
-                const lowerCaseQuery = query.toLowerCase();
-                results = sourceData.filter(r => 
-                    (r.naam && r.naam.toLowerCase().includes(lowerCaseQuery)) ||
-                    (r.voter_no && r.voter_no.includes(query))
-                ).slice(0, 5);
-            } else {
-                const data = await searchRecords({ naam__icontains: query, page_size: 5 });
-                results = data.results || [];
-            }
+            const data = await searchRecords({ naam__icontains: query, page_size: 5 });
+            const results = data.results || [];
             
             if (results.length > 0) {
                 results.forEach(record => {
@@ -743,21 +508,9 @@ document.addEventListener('DOMContentLoaded', () => {
         addExistingStatus.textContent = 'Adding...';
         addExistingStatus.className = 'text-blue-500 text-sm text-center mt-2';
         try {
-            if (currentDataMode === 'import') {
-                const newRel = {
-                    id: `new_rel_${Date.now()}`, // Temporary ID for local removal
-                    person: currentRecordForFamily.id, 
-                    relative: selectedRelativeForFamily.id, 
-                    relationship_type: relationshipType 
-                };
-                offlineChanges.newFamilyRels.push(newRel);
-                allImportedFamilyRels.push(newRel); // Add to local data for immediate UI update
-                addExistingStatus.textContent = 'Added locally. Sync to save.';
-                updateSyncStatus();
-            } else {
-                await addFamilyMember(currentRecordForFamily.id, selectedRelativeForFamily.id, relationshipType);
-                addExistingStatus.textContent = 'Successfully added!';
-            }
+            await addFamilyMember(currentRecordForFamily.id, selectedRelativeForFamily.id, relationshipType);
+            addExistingStatus.textContent = 'Successfully added!';
+
             addExistingStatus.className = 'text-green-600 text-sm text-center mt-2';
             setTimeout(() => { familyManagerModal.classList.add('hidden'); loadCurrentFamilyMembers(currentRecordForFamily.id); }, 1000);
         } catch (error) { addExistingStatus.textContent = `Error: ${error.message}`; addExistingStatus.className = 'text-red-500 text-sm text-center mt-2'; }
@@ -774,29 +527,10 @@ document.addEventListener('DOMContentLoaded', () => {
         addNewStatus.textContent = 'Creating new record...';
         addNewStatus.className = 'text-blue-500 text-sm text-center mt-2';
         try {
-            if (currentDataMode === 'import') {
-                const tempId = `new_${Date.now()}`;
-                newRecordData.id = tempId;
-                allImportedRecords.push(newRecordData); // Add to local records
-                offlineChanges.newRecords.push(newRecordData);
-
-                const newRel = { 
-                    id: `new_rel_${Date.now()}`,
-                    person: currentRecordForFamily.id, 
-                    relative: tempId, 
-                    relationship_type: relationship 
-                };
-                allImportedFamilyRels.push(newRel); // Add to local relationships
-                offlineChanges.newFamilyRels.push(newRel);
-                
-                addNewStatus.textContent = 'Added locally. Sync to save.';
-                updateSyncStatus();
-            } else {
-                const newRecord = await addRecord(newRecordData);
-                addNewStatus.textContent = 'Linking family member...';
-                await addFamilyMember(currentRecordForFamily.id, newRecord.id, relationship);
-                addNewStatus.textContent = 'Successfully added!';
-            }
+            const newRecord = await addRecord(newRecordData);
+            addNewStatus.textContent = 'Linking family member...';
+            await addFamilyMember(currentRecordForFamily.id, newRecord.id, relationship);
+            addNewStatus.textContent = 'Successfully added!';
             addNewStatus.className = 'text-green-600 text-sm text-center mt-2';
             setTimeout(() => { familyManagerModal.classList.add('hidden'); loadCurrentFamilyMembers(currentRecordForFamily.id); }, 1000);
         } catch (error) { addNewStatus.textContent = `Error: ${error.message}`; addNewStatus.className = 'text-red-500 text-sm text-center mt-2'; }
@@ -805,16 +539,43 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleRelTabClick(clickedTab) { if (!relTabs) return; relTabs.forEach(tab => tab.classList.remove('active')); clickedTab.classList.add('active'); const status = clickedTab.dataset.status; if (status === 'Stats') { displayRelationshipStats(); } else { displayRelationshipList(status); } }
     async function handleRecalculateAges() { if (!ageRecalculationStatus) return; ageRecalculationStatus.innerHTML = '<p class="text-blue-600">Recalculating ages for all records. This might take a moment...</p>'; try { const result = await recalculateAllAges(); ageRecalculationStatus.innerHTML = `<p class="text-green-600">${result.message}</p>`; initializeAgeManagementPage(); } catch (error) { ageRecalculationStatus.innerHTML = `<p class="text-red-600">Error: ${error.message}</p>`; } }
     
-    async function handleFamilyTreeSearch(event) { const input = event.target; const query = input.value.trim(); const isMainSearch = input.id === 'family-main-search'; const resultsContainer = isMainSearch ? familyMainSearchResults : familyRelativeSearchResults; if (!query) { resultsContainer.innerHTML = ''; return; } 
-        if (currentDataMode === 'direct') {
-            try { const data = await searchRecords({ naam__icontains: query, page_size: 10 }); resultsContainer.innerHTML = ''; if (data.results.length === 0) { resultsContainer.innerHTML = '<p class="text-gray-500">No results found.</p>'; } else { data.results.forEach(record => { const button = document.createElement('button'); button.className = 'block w-full text-left p-2 rounded hover:bg-gray-100'; button.textContent = `${record.naam} (Voter No: ${record.voter_no || 'N/A'})`; button.onclick = () => { if (isMainSearch) { selectMainPerson(record); } else { selectRelative(record); } }; resultsContainer.appendChild(button); }); } } catch (error) { resultsContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; }
-        } else {
-             const filtered = filterImportedRecords({ naam: query }).slice(0, 10);
+    async function handleFamilyTreeSearch(event) {
+        const input = event.target;
+        const query = input.value.trim();
+        const isMainSearch = input.id === 'family-main-search';
+        const resultsContainer = isMainSearch ? familyMainSearchResults : familyRelativeSearchResults;
+        if (!query) {
             resultsContainer.innerHTML = '';
-            if (filtered.length === 0) { resultsContainer.innerHTML = '<p class="text-gray-500">No results found.</p>'; }
-            else { filtered.forEach(record => { const button = document.createElement('button'); button.className = 'block w-full text-left p-2 rounded hover:bg-gray-100'; button.textContent = `${record.naam} (Voter No: ${record.voter_no || 'N/A'})`; button.onclick = () => { if (isMainSearch) { selectMainPerson(record); } else { selectRelative(record); } }; resultsContainer.appendChild(button); }); }
+            return;
         }
-     }
+        try {
+            const data = await searchRecords({
+                naam__icontains: query,
+                page_size: 10
+            });
+            resultsContainer.innerHTML = '';
+            if (data.results.length === 0) {
+                resultsContainer.innerHTML = '<p class="text-gray-500">No results found.</p>';
+            } else {
+                data.results.forEach(record => {
+                    const button = document.createElement('button');
+                    button.className = 'block w-full text-left p-2 rounded hover:bg-gray-100';
+                    button.textContent = `${record.naam} (Voter No: ${record.voter_no || 'N/A'})`;
+                    button.onclick = () => {
+                        if (isMainSearch) {
+                            selectMainPerson(record);
+                        } else {
+                            selectRelative(record);
+                        }
+                    };
+                    resultsContainer.appendChild(button);
+                });
+            }
+        } catch (error) {
+            resultsContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+        }
+    }
+
     function selectMainPerson(person) { selectedPersonId = person.id; familySelectedPersonDetails.innerHTML = `<p><strong>Name:</strong> ${person.naam}</p><p><strong>Voter No:</strong> ${person.voter_no || 'N/A'}</p>`; familyManagementSection.classList.remove('hidden'); familyMainSearchResults.innerHTML = ''; familyMainSearchInput.value = person.naam; loadFamilyTree(person.id); }
     function selectRelative(relative) { selectedRelativeId = relative.id; familyRelativeSearchResults.innerHTML = `<p class="p-2 bg-green-100 rounded">Selected: ${relative.naam}</p>`; familyRelativeSearchInput.value = relative.naam; familyAddForm.classList.remove('hidden'); }
     async function loadFamilyTree(personId, url = null) { familyCurrentRelatives.innerHTML = '<p class="text-gray-500">Loading relatives...</p>'; try { const data = await getFamilyTree(personId, url); familyCurrentRelatives.innerHTML = ''; if (data.results.length === 0) { familyCurrentRelatives.innerHTML = '<p class="text-gray-500">No relatives added yet.</p>'; } else { data.results.forEach(rel => { const relDiv = document.createElement('div'); relDiv.className = 'flex justify-between items-center p-2 border-b'; relDiv.innerHTML = ` <div> <span class="font-bold">${rel.relationship_type}:</span> <span>${rel.relative.naam} (Voter No: ${rel.relative.voter_no || 'N/A'})</span> </div> <button data-id="${rel.id}" class="remove-relative-btn text-red-500 hover:text-red-700">Remove</button> `; familyCurrentRelatives.appendChild(relDiv); }); document.querySelectorAll('.remove-relative-btn').forEach(btn => { btn.addEventListener('click', handleRemoveRelationship); }); } displayPaginationControls(familyTreePagination, data.previous, data.next, (nextUrl) => loadFamilyTree(personId, nextUrl)); } catch (error) { familyCurrentRelatives.innerHTML = `<p class="text-red-500">${error.message}</p>`; } }
@@ -825,26 +586,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('Are you sure you want to remove this relationship?')) return;
         
         try {
-            if (currentDataMode === 'import') {
-                // Find index to remove from local data
-                const relIndex = allImportedFamilyRels.findIndex(r => r.id == relationshipId);
-                if (relIndex > -1) {
-                    allImportedFamilyRels.splice(relIndex, 1);
-                }
-                // Add to changes if it's not a newly created (unsynced) one
-                if (!String(relationshipId).startsWith('new_rel_')) {
-                    offlineChanges.deletedFamilyRels.push(relationshipId);
-                }
-                updateSyncStatus();
-            } else {
-                await removeFamilyMember(relationshipId);
-            }
-            
-            // Refresh the relevant UI list
-            if (!familyManagerModal.classList.contains('hidden')) {
+            await removeFamilyMember(relationshipId);
+            if (!familyManagerModal.classList.contains('hidden') || !editRecordModal.classList.contains('hidden')) {
                 loadCurrentFamilyMembers(currentRecordForFamily.id);
-            } else if (!editRecordModal.classList.contains('hidden')) {
-                 loadCurrentFamilyMembers(currentRecordForFamily.id);
             } else if (pages.familytree.classList.contains('active')) {
                  loadFamilyTree(selectedPersonId);
             }
@@ -854,24 +598,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     
-    async function handleCallHistorySearch(event) { const query = event.target.value.trim(); if (!query) { callHistorySearchResults.innerHTML = ''; return; } 
-        if (currentDataMode === 'direct') {
-            try { const data = await searchRecords({ naam__icontains: query, page_size: 10 }); callHistorySearchResults.innerHTML = ''; if (data.results.length === 0) { callHistorySearchResults.innerHTML = '<p class="text-gray-500">No results found.</p>'; } else { data.results.forEach(record => { const button = document.createElement('button'); button.className = 'block w-full text-left p-2 rounded hover:bg-gray-100'; button.textContent = `${record.naam} (Voter No: ${record.voter_no || 'N/A'})`; button.onclick = () => selectPersonForCallHistory(record); callHistorySearchResults.appendChild(button); }); } } catch (error) { callHistorySearchResults.innerHTML = `<p class="text-red-500">${error.message}</p>`; }
-        } else {
-             const filtered = filterImportedRecords({ naam: query }).slice(0, 10);
-            callHistorySearchResults.innerHTML = '';
-            if (filtered.length === 0) { callHistorySearchResults.innerHTML = '<p class="text-gray-500">No results found.</p>'; }
-            else { filtered.forEach(record => { const button = document.createElement('button'); button.className = 'block w-full text-left p-2 rounded hover:bg-gray-100'; button.textContent = `${record.naam} (Voter No: ${record.voter_no || 'N/A'})`; button.onclick = () => selectPersonForCallHistory(record); callHistorySearchResults.appendChild(button); }); }
+    async function handleCallHistorySearch(event) { 
+        const query = event.target.value.trim(); 
+        if (!query) { 
+            callHistorySearchResults.innerHTML = ''; 
+            return; 
+        } 
+        
+        try { 
+            const data = await searchRecords({ naam__icontains: query, page_size: 10 }); 
+            callHistorySearchResults.innerHTML = ''; 
+            if (data.results.length === 0) { 
+                callHistorySearchResults.innerHTML = '<p class="text-gray-500">No results found.</p>'; 
+            } else { 
+                data.results.forEach(record => { 
+                    const button = document.createElement('button'); 
+                    button.className = 'block w-full text-left p-2 rounded hover:bg-gray-100'; 
+                    button.textContent = `${record.naam} (Voter No: ${record.voter_no || 'N/A'})`; 
+                    button.onclick = () => selectPersonForCallHistory(record); 
+                    callHistorySearchResults.appendChild(button); 
+                }); 
+            } 
+        } catch (error) { 
+            callHistorySearchResults.innerHTML = `<p class="text-red-500">${error.message}</p>`; 
         }
      }
     function selectPersonForCallHistory(person) { selectedPersonForCallHistory = person; callHistorySelectedPerson.innerHTML = `<p><strong>Name:</strong> ${person.naam}</p><p><strong>Voter No:</strong> ${person.voter_no || 'N/A'}</p>`; callHistoryManagementSection.classList.remove('hidden'); callHistorySearchResults.innerHTML = ''; callHistorySearchInput.value = person.naam; loadCallHistory(person.id); }
     async function loadCallHistory(recordId, url = null) { callHistoryLogsContainer.innerHTML = '<p class="text-gray-500">Loading history...</p>'; try { const data = await getCallHistory(recordId, url); callHistoryLogsContainer.innerHTML = ''; if (data.results.length === 0) { callHistoryLogsContainer.innerHTML = '<p class="text-gray-500">No call history found for this person.</p>'; } else { data.results.forEach(log => { const logDiv = document.createElement('div'); logDiv.className = 'p-3 border rounded-lg bg-gray-50'; logDiv.innerHTML = ` <p class="font-bold text-gray-700">${log.call_date}</p> <p class="text-gray-600 mt-1">${log.summary}</p> `; callHistoryLogsContainer.appendChild(logDiv); }); } displayPaginationControls(callHistoryPagination, data.previous, data.next, (nextUrl) => loadCallHistory(recordId, nextUrl)); } catch (error) { callHistoryLogsContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; } }
-    async function handleAddCallLog(event) { event.preventDefault(); const callDate = document.getElementById('call-date').value; const summary = document.getElementById('call-summary').value.trim(); if (!callDate || !summary) { callLogStatus.textContent = 'Please fill out all fields.'; return; } callLogStatus.textContent = 'Saving...'; try { if (currentDataMode === 'import') { offlineChanges.newCallLogs.push({ record: selectedPersonForCallHistory.id, call_date: callDate, summary }); callLogStatus.textContent = 'Log added locally. Sync to save.'; updateSyncStatus(); } else { await addCallLog(selectedPersonForCallHistory.id, callDate, summary); callLogStatus.textContent = 'Log saved successfully!'; } addCallLogForm.reset(); loadCallHistory(selectedPersonForCallHistory.id); } catch (error) { callLogStatus.textContent = `Error: ${error.message}`; } }
+    async function handleAddCallLog(event) { 
+        event.preventDefault(); 
+        const callDate = document.getElementById('call-date').value; 
+        const summary = document.getElementById('call-summary').value.trim(); 
+        if (!callDate || !summary) { 
+            callLogStatus.textContent = 'Please fill out all fields.'; 
+            return; 
+        } 
+        callLogStatus.textContent = 'Saving...'; 
+        try { 
+            await addCallLog(selectedPersonForCallHistory.id, callDate, summary); 
+            callLogStatus.textContent = 'Log saved successfully!'; 
+            addCallLogForm.reset(); 
+            loadCallHistory(selectedPersonForCallHistory.id); 
+        } catch (error) { 
+            callLogStatus.textContent = `Error: ${error.message}`; 
+        } 
+    }
 
     async function initializeEventsPage() {
         try {
-            // --- NEW: Offline/Online logic for events page ---
-            const events = (currentDataMode === 'import') ? allImportedEvents : (await getEvents()).results;
+            const events = (await getEvents()).results;
             populateEventList(events);
             populateEventFilterDropdown(events);
         } catch (error) {
@@ -880,9 +655,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function handleAddEvent(e) { e.preventDefault(); if(currentDataMode === 'import') { alert("Adding new event categories is disabled in Import Mode. Please sync your data and switch to Direct Mode."); return; } const eventName = newEventNameInput.value.trim(); if (!eventName) { addEventStatus.textContent = 'Event name cannot be empty.'; addEventStatus.className = 'text-red-500 text-sm'; return; } addEventStatus.textContent = 'Adding...'; addEventStatus.className = 'text-blue-600 text-sm'; try { await addEvent(eventName); addEventStatus.textContent = 'Event added successfully!'; addEventStatus.className = 'text-green-600 text-sm'; addEventForm.reset(); initializeEventsPage(); } catch (error) { addEventStatus.textContent = error.message; addEventStatus.className = 'text-red-500 text-sm'; } }
+    async function handleAddEvent(e) { 
+        e.preventDefault(); 
+        const eventName = newEventNameInput.value.trim(); 
+        if (!eventName) { 
+            addEventStatus.textContent = 'Event name cannot be empty.'; 
+            addEventStatus.className = 'text-red-500 text-sm'; 
+            return; 
+        } 
+        addEventStatus.textContent = 'Adding...'; 
+        addEventStatus.className = 'text-blue-600 text-sm'; 
+        try { 
+            await addEvent(eventName); 
+            addEventStatus.textContent = 'Event added successfully!'; 
+            addEventStatus.className = 'text-green-600 text-sm'; 
+            addEventForm.reset(); 
+            initializeEventsPage(); 
+        } catch (error) { 
+            addEventStatus.textContent = error.message; 
+            addEventStatus.className = 'text-red-500 text-sm'; 
+        } 
+    }
 
-    async function handleDeleteEvent(eventId) { if(currentDataMode === 'import') { alert("Deleting events is disabled in Import Mode. Please sync your data and switch to Direct Mode."); return; } if (!confirm('Are you sure you want to delete this event? This cannot be undone.')) return; try { await deleteEvent(eventId); initializeEventsPage(); } catch (error) { alert(error.message); } }
+    async function handleDeleteEvent(eventId) { 
+        if (!confirm('Are you sure you want to delete this event? This cannot be undone.')) return; 
+        try { 
+            await deleteEvent(eventId); 
+            initializeEventsPage(); 
+        } catch (error) { 
+            alert(error.message); 
+        } 
+    }
 
     async function handleFilterByEvent(url = null) { const eventId = eventFilterSelect.value; if (!eventId || isNaN(parseInt(eventId))) { eventFilterResults.innerHTML = '<p class="text-gray-600">Please select a valid event to filter.</p>'; return; } eventFilterResults.innerHTML = '<p class="text-gray-500">Loading records...</p>'; try { const data = await getRecordsForEvent(eventId, url); displayEventRecords(data.results); displayPaginationControls(eventFilterPagination, data.previous, data.next, (nextUrl) => handleFilterByEvent(nextUrl)); } catch (error) { eventFilterResults.innerHTML = `<p class="text-red-500">${error.message}</p>`; } }
 
@@ -892,10 +695,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function displayEventRecords(records) { if (!eventFilterResults) return; eventFilterResults.innerHTML = ''; if (!records || records.length === 0) { eventFilterResults.innerHTML = '<p class="text-gray-600">No records found for this event.</p>'; return; } records.forEach(record => { const card = document.createElement('div'); card.className = 'search-card-detailed'; const safeText = (text) => text || '<span class="text-gray-400">N/A</span>'; card.innerHTML = `<div class="search-card-header"><h3>${safeText(record.naam)}</h3><span class="kromik-no">Serial No: ${safeText(record.kromik_no)}</span></div><div class="search-card-body"><img src="${record.photo_link}" alt="Voter Photo" class="search-card-photo" onerror="this.onerror=null;this.src='https://placehold.co/100x100/EEE/31343C?text=No+Image';"><div class="search-card-details-grid"><div class="detail-item"><span class="label">Voter No:</span> ${safeText(record.voter_no)}</div><div class="detail-item"><span class="label">Father's Name:</span> ${safeText(record.pitar_naam)}</div><div class="detail-item"><span class="label">Address:</span> ${safeText(record.thikana)}</div><div class="detail-item"><span class="label">Batch:</span> ${safeText(record.batch_name)}</div><div class="detail-item"><span class="label">Assigned Events:</span> ${safeText(record.event_names.join(', '))}</div></div></div>`; eventFilterResults.appendChild(card); }); }
     
-    // --- NEW: Event Collector Functions ---
+    // --- Event Collector Functions ---
     async function initializeEventCollectorPage() {
         try {
-            const events = (currentDataMode === 'import') ? allImportedEvents : (await getEvents()).results;
+            const events = (await getEvents()).results;
             populateEventCollectorDropdown(events);
         } catch (error) {
             if (eventCollectorSelect) eventCollectorSelect.innerHTML = `<option>Error loading events</option>`;
@@ -1083,16 +886,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    // --- End of Event Collector Functions ---
-
-    // --- NEW: Data Management Functions ---
+    // --- Data Management Functions ---
     async function initializeDataManagementPage() {
-        if (currentDataMode === 'import') {
-            pages.datamanagement.innerHTML = `<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert"><p class="font-bold">Feature Disabled in Import Mode</p><p>Data management is not available while in Import Mode. Please sync your changes and switch to Direct Mode to manage data.</p></div>`;
-            return;
-        }
-
         dataManagementStatus.innerHTML = '';
         dmFileSelect.innerHTML = '<option value="">Select a Batch First</option>';
         dmFileSelect.disabled = true;
@@ -1205,7 +1000,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     function navigateTo(pageName) {
         if (!pages[pageName]) return;
         Object.values(pages).forEach(page => page && page.classList.add('hidden'));
@@ -1227,34 +1021,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageName === 'familytree') initializeFamilyTreePage();
         if (pageName === 'callhistory') initializeCallHistoryPage();
         if (pageName === 'eventcollector') initializeEventCollectorPage();
-        if (pageName === 'datamanagement') initializeDataManagementPage(); // NEW
+        if (pageName === 'datamanagement') initializeDataManagementPage();
     }
 
     function displayPaginationControls(container, prevUrl, nextUrl, callback) { if (!container) return; container.innerHTML = ''; const prevButton = document.createElement('button'); prevButton.textContent = 'Previous'; prevButton.className = 'px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed'; prevButton.disabled = !prevUrl; prevButton.addEventListener('click', () => callback(prevUrl)); const nextButton = document.createElement('button'); nextButton.textContent = 'Next'; nextButton.className = 'px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed'; nextButton.disabled = !nextUrl; nextButton.addEventListener('click', () => callback(nextUrl)); container.appendChild(prevButton); container.appendChild(nextButton); }
     
-    function displayClientSidePagination(container, currentPage, totalItems, pageSize, callback) { if (!container) return; container.innerHTML = ''; const pageCount = Math.ceil(totalItems / pageSize); if (pageCount <= 1) return; const prevButton = document.createElement('button'); prevButton.textContent = 'Previous'; prevButton.className = 'px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed'; prevButton.disabled = currentPage === 1; prevButton.addEventListener('click', () => callback(currentPage - 1)); const pageInfo = document.createElement('span'); pageInfo.className = 'text-sm text-gray-700'; pageInfo.textContent = `Page ${currentPage} of ${pageCount}`; const nextButton = document.createElement('button'); nextButton.textContent = 'Next'; nextButton.className = 'px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed'; nextButton.disabled = currentPage === pageCount; nextButton.addEventListener('click', () => callback(currentPage + 1)); container.appendChild(prevButton); container.appendChild(pageInfo); container.appendChild(nextButton); }
-
     function renderReadOnlyTable(records) { if (!allDataTableContainer) return; allDataTableContainer.innerHTML = ''; if (!records || records.length === 0) { allDataTableContainer.innerHTML = '<p class="p-4 text-gray-600">No records found for this selection.</p>'; return; } const table = document.createElement('table'); table.className = 'min-w-full divide-y divide-gray-200'; table.innerHTML = ` <thead class="bg-gray-50"> <tr> <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th> <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Voter No</th> <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Father's Name</th> <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th> <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Relationship</th> <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> </tr> </thead> <tbody class="bg-white divide-y divide-gray-200"> </tbody> `; const tbody = table.querySelector('tbody'); records.forEach(record => { const row = document.createElement('tr'); row.dataset.recordId = record.id; row.className = 'cursor-pointer hover:bg-gray-50'; row.innerHTML = ` <td class="px-6 py-4 whitespace-nowrap">${record.naam || ''}</td> <td class="px-6 py-4 whitespace-nowrap">${record.voter_no || ''}</td> <td class="px-6 py-4 whitespace-nowrap">${record.pitar_naam || ''}</td> <td class="px-6 py-4 whitespace-nowrap">${record.thikana || ''}</td> <td class="px-6 py-4 whitespace-nowrap">${record.relationship_status || ''}</td> <td class="px-6 py-4 whitespace-nowrap"> <button data-record-id="${record.id}" class="edit-btn text-indigo-600 hover:text-indigo-900">Edit</button> </td> `; tbody.appendChild(row); }); allDataTableContainer.appendChild(table); }
 
-    function displayRelationshipList(status, pageOrUrl = 1) { if (!relContentContainer || !relPaginationContainer) return; relContentContainer.innerHTML = '<p class="text-gray-500">Loading...</p>'; relPaginationContainer.innerHTML = ''; 
-        if (currentDataMode === 'direct') {
-            const params = { relationship_status: status }; const url = typeof pageOrUrl === 'string' ? pageOrUrl : null;
-            searchRecords(url || params).then(data => { if (!data.results || data.results.length === 0) { relContentContainer.innerHTML = `<p class="text-gray-600">No records found with status: ${status}.</p>`; return; } const listContainer = document.createElement('div'); listContainer.className = 'space-y-4'; data.results.forEach(record => { const card = document.createElement('div'); card.className = 'result-card'; card.innerHTML = ` <h3>${record.naam}</h3> <p><strong>Voter No:</strong> ${record.voter_no || 'N/A'}</p> <p><strong>Father's Name:</strong> ${record.pitar_naam || 'N/A'}</p> <p><strong>Address:</strong> ${record.thikana || 'N/A'}</p> <p><strong>Batch:</strong> ${record.batch_name}</p> `; listContainer.appendChild(card); }); relContentContainer.innerHTML = ''; relContentContainer.appendChild(listContainer); displayPaginationControls(relPaginationContainer, data.previous, data.next, (nextUrl) => displayRelationshipList(status, nextUrl)); }).catch(error => { relContentContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; });
-        } else {
-            const page = typeof pageOrUrl === 'number' ? pageOrUrl : 1;
-            const filtered = filterImportedRecords({ relationship_status: status });
-            const pageSize = 50;
-            const start = (page - 1) * pageSize;
-            const end = start + pageSize;
-            const paginatedResults = filtered.slice(start, end);
-            if (paginatedResults.length === 0) { relContentContainer.innerHTML = `<p class="text-gray-600">No records found with status: ${status}.</p>`; return; }
-            const listContainer = document.createElement('div');
-            listContainer.className = 'space-y-4';
-            paginatedResults.forEach(record => { const card = document.createElement('div'); card.className = 'result-card'; card.innerHTML = ` <h3>${record.naam}</h3> <p><strong>Voter No:</strong> ${record.voter_no || 'N/A'}</p> <p><strong>Father's Name:</strong> ${record.pitar_naam || 'N/A'}</p> <p><strong>Address:</strong> ${record.thikana || 'N/A'}</p> <p><strong>Batch:</strong> ${record.batch_name}</p> `; listContainer.appendChild(card); });
-            relContentContainer.innerHTML = '';
-            relContentContainer.appendChild(listContainer);
-            displayClientSidePagination(relPaginationContainer, page, filtered.length, pageSize, (nextPage) => displayRelationshipList(status, nextPage));
-        }
+    function displayRelationshipList(status, pageOrUrl = 1) { 
+        if (!relContentContainer || !relPaginationContainer) return; 
+        relContentContainer.innerHTML = '<p class="text-gray-500">Loading...</p>'; 
+        relPaginationContainer.innerHTML = ''; 
+        
+        const params = { relationship_status: status }; 
+        const url = typeof pageOrUrl === 'string' ? pageOrUrl : null;
+        
+        searchRecords(url || params).then(data => { 
+            if (!data.results || data.results.length === 0) { 
+                relContentContainer.innerHTML = `<p class="text-gray-600">No records found with status: ${status}.</p>`; 
+                return; 
+            } 
+            const listContainer = document.createElement('div'); 
+            listContainer.className = 'space-y-4'; 
+            data.results.forEach(record => { 
+                const card = document.createElement('div'); 
+                card.className = 'result-card'; 
+                card.innerHTML = ` <h3>${record.naam}</h3> <p><strong>Voter No:</strong> ${record.voter_no || 'N/A'}</p> <p><strong>Father's Name:</strong> ${record.pitar_naam || 'N/A'}</p> <p><strong>Address:</strong> ${record.thikana || 'N/A'}</p> <p><strong>Batch:</strong> ${record.batch_name}</p> `; 
+                listContainer.appendChild(card); 
+            }); 
+            relContentContainer.innerHTML = ''; 
+            relContentContainer.appendChild(listContainer); 
+            displayPaginationControls(relPaginationContainer, data.previous, data.next, (nextUrl) => displayRelationshipList(status, nextUrl)); 
+        }).catch(error => { 
+            relContentContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; 
+        });
     }
     
     async function displayRelationshipStats() { if (!relContentContainer || !relPaginationContainer) return; relContentContainer.innerHTML = '<p class="text-gray-500">Loading statistics...</p>'; relPaginationContainer.innerHTML = ''; try { const stats = await getRelationshipStats(); let byBatchHtml = '<h3>Distribution by Batch</h3><div class="space-y-4 mt-4">'; const batchData = stats.by_batch.reduce((acc, item) => { if (!acc[item.batch__name]) { acc[item.batch__name] = {}; } acc[item.batch__name][item.relationship_status] = item.count; return acc; }, {}); for (const batchName in batchData) { const counts = batchData[batchName]; byBatchHtml += ` <div class="p-4 border rounded-lg"> <h4 class="font-bold">${batchName}</h4> <div class="flex justify-center space-x-4 mt-2 items-end"> <div class="text-center"> <div class="bg-green-500 text-white text-xs py-1 flex items-center justify-center rounded-t-md" style="height: ${ (counts.Friend || 0) * 10 + 20 }px; width: 60px;">${counts.Friend || 0}</div> <div class="text-xs mt-1">Friend</div> </div> <div class="text-center"> <div class="bg-red-500 text-white text-xs py-1 flex items-center justify-center rounded-t-md" style="height: ${ (counts.Enemy || 0) * 10 + 20 }px; width: 60px;">${counts.Enemy || 0}</div> <div class="text-xs mt-1">Enemy</div> </div> <div class="text-center"> <div class="bg-yellow-500 text-white text-xs py-1 flex items-center justify-center rounded-t-md" style="height: ${ (counts.Connected || 0) * 10 + 20 }px; width: 60px;">${counts.Connected || 0}</div> <div class="text-xs mt-1">Connected</div> </div> </div> </div> `; } byBatchHtml += '</div>'; relContentContainer.innerHTML = byBatchHtml; } catch (error) { relContentContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; } }
@@ -1290,47 +1090,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function debounce(func, delay) { let timeout; return function(...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), delay); }; }
     
-    function showLogin() { if (loginScreen) loginScreen.classList.remove('hidden'); if (appContainer) appContainer.classList.add('hidden'); if (modeSelectionModal) modeSelectionModal.classList.add('hidden'); }
-
-    function showApp() { if (loginScreen) loginScreen.classList.add('hidden'); if (appContainer) appContainer.classList.add('hidden'); if (modeSelectionModal) modeSelectionModal.classList.remove('hidden'); }
-    
-    function filterImportedRecords(params) {
-        const lowerCaseParams = {};
-        for (const key in params) { if (typeof params[key] === 'string' && key !== 'batch') { lowerCaseParams[key] = params[key].toLowerCase(); } else { lowerCaseParams[key] = params[key]; } }
-        return allImportedRecords.filter(r => {
-            const nameMatch = !lowerCaseParams.naam || (r.naam && r.naam.toLowerCase().includes(lowerCaseParams.naam));
-            const voterNoMatch = !lowerCaseParams.voter_no || r.voter_no === lowerCaseParams.voter_no;
-            const pitarNaamMatch = !lowerCaseParams.pitar_naam || (r.pitar_naam && r.pitar_naam.toLowerCase().includes(lowerCaseParams.pitar_naam));
-            const thikanaMatch = !lowerCaseParams.thikana || (r.thikana && r.thikana.toLowerCase().includes(lowerCaseParams.thikana));
-            const matarNaamMatch = !lowerCaseParams.matar_naam || (r.matar_naam && r.matar_naam.toLowerCase().includes(lowerCaseParams.matar_naam));
-            const kromikNoMatch = !lowerCaseParams.kromik_no || r.kromik_no === lowerCaseParams.kromik_no;
-            const peshaMatch = !lowerCaseParams.pesha || (r.pesha && r.pesha.toLowerCase().includes(lowerCaseParams.pesha));
-            const phoneMatch = !lowerCaseParams.phone_number || (r.phone_number && r.phone_number.includes(lowerCaseParams.phone_number));
-            const batchMatch = !lowerCaseParams.batch || r.batch == lowerCaseParams.batch;
-            const fileNameMatch = !lowerCaseParams.file_name || r.file_name === lowerCaseParams.file_name;
-            const relationshipMatch = !lowerCaseParams.relationship_status || r.relationship_status === lowerCaseParams.relationship_status;
-            return nameMatch && voterNoMatch && pitarNaamMatch && thikanaMatch && matarNaamMatch && kromikNoMatch && peshaMatch && phoneMatch && batchMatch && fileNameMatch && relationshipMatch;
-        });
+    function showLogin() {
+        if (loginScreen) loginScreen.classList.remove('hidden');
+        if (appContainer) appContainer.classList.add('hidden');
     }
 
-    function updateSyncStatus() {
-        if (!syncStatus) return;
-        const totalChanges = Object.keys(offlineChanges.updatedRecords).length +
-                             offlineChanges.newRecords.length +
-                             offlineChanges.newFamilyRels.length +
-                             offlineChanges.deletedFamilyRels.length +
-                             offlineChanges.newCallLogs.length +
-                             Object.keys(offlineChanges.eventAssignments).length;
-        if (totalChanges > 0) {
-            syncStatus.textContent = `${totalChanges} changes pending.`;
-            syncDataButton.disabled = false;
+    function showApp() {
+        if (loginScreen) loginScreen.classList.add('hidden');
+        if (appContainer) appContainer.classList.remove('hidden');
+        navigateTo('dashboard');
+        updateDashboardStats();
+    }
+    
+    function init() {
+        if (localStorage.getItem('authToken')) {
+            showApp();
         } else {
-            syncStatus.textContent = 'Data is up to date.';
-            syncDataButton.disabled = true;
+            showLogin();
         }
     }
-
-    function init() { if (localStorage.getItem('authToken')) { showApp(); } else { showLogin(); } }
     
     init();
 });
