@@ -1,5 +1,6 @@
-// FIX: Use a relative URL for portability between development and production.
-const API_BASE_URL = '';
+// FIX: Use a full URL for local development to point to the Django server.
+// When you deploy, you can change this back to a relative URL if needed.
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
 async function loginUser(username, password) {
     const response = await fetch(`${API_BASE_URL}/api/get-token/`, {
@@ -31,6 +32,7 @@ async function searchRecords(searchParamsOrUrl) {
 
     let url;
     if (typeof searchParamsOrUrl === 'string') {
+        // This is a full URL provided by the pagination controls, so use it directly.
         url = searchParamsOrUrl;
     } else {
         const query = new URLSearchParams(searchParamsOrUrl).toString();

@@ -24,9 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-jy4=9zww0@ybx^xy(+fvx@rdyth!ean7w*_c$(bip*(2fqh=3e')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+# Changed DEBUG to True for local development
+DEBUG = True
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,dakhandvoter.akhandapps.com').split(',')
+# Allow localhost for development
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
 # Application definition
@@ -48,7 +50,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    # 'whitenoise.middleware.WhiteNoiseMiddleware', # Not needed for local dev
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -62,7 +64,7 @@ ROOT_URLCONF = 'blossom_educare.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # Correctly point to the 'frontend' directory, which is a sibling of BASE_DIR
+        # Correctly point to the 'frontend' directory.
         'DIRS': [os.path.join(BASE_DIR.parent, 'frontend')],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -81,22 +83,24 @@ WSGI_APPLICATION = 'blossom_educare.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Updated to use PostgreSQL with the provided credentials.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'postgres'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'password'),
-        'HOST': os.environ.get('DB_HOST', 'db'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'NAME': 'postgres',
+        'USER': 'voterdata',
+        'PASSWORD': 'AkhandFoundation_VoterData',
+        'HOST': '69.62.124.103',
+        'PORT': '5450',
     }
 }
 
 # Caching Configuration
+# Updated to use Redis with the provided credentials.
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.environ.get('REDIS_URL', 'redis://redis:6379/0'),
+        "LOCATION": "redis://default:rSTgDqiD93Od0eRyOtuitCmGdLOhsvPB9HdbABHdFT7UXFD922KZgOZ1gvFtFV3n@69.62.124.103:8767/0",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
@@ -139,13 +143,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/static/'
+# This is where Django's 'collectstatic' will place files.
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# This tells Django where to find your frontend's static files.
 STATICFILES_DIRS = [
-    # Correctly point to the 'frontend' directory for static assets
     os.path.join(BASE_DIR.parent, 'frontend'),
 ]
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Removed WhiteNoise storage for local development
+# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 # Default primary key field type
@@ -154,11 +160,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True # Good for initial setup
-# More specific setting to allow requests from local files
-# CORS_ALLOWED_ORIGINS = [
-#     "null",
-# ]
+CORS_ALLOW_ALL_ORIGINS = True # Good for local development
 
 
 # Django REST Framework configuration
@@ -170,10 +172,10 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [ # Add this section
         'django_filters.rest_framework.DjangoFilterBackend'
     ],
-        # --- NEW: Add pagination settings ---
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50 # You can adjust this number
 }
 
-# CSRF Trusted Origins for production
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost,http://127.0.0.1,https://dakhandvoter.akhandapps.com').split(',')
+# Simplified for local development
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
+
