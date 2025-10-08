@@ -228,8 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (allDataTableContainer) {
         allDataTableContainer.addEventListener('click', (e) => {
-            if (e.target.classList.contains('edit-btn')) {
-                const recordId = e.target.dataset.recordId;
+            if (e.target.closest('.edit-btn')) {
+                const recordId = e.target.closest('.edit-btn').dataset.recordId;
                 openEditModal(recordId);
             }
             const row = e.target.closest('tr');
@@ -240,6 +240,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    if(relContentContainer) {
+        relContentContainer.addEventListener('click', (e) => {
+            if (e.target.closest('.view-profile-btn')) {
+                const recordId = e.target.closest('.view-profile-btn').dataset.recordId;
+                openEditModal(recordId);
+            }
+        });
+    }
+
 
     // --- Event Handlers ---
     async function handleLogin(e) {
@@ -371,12 +381,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     async function openEditModal(recordId) {
-        const record = originalRecords.find(r => r.id == recordId);
+        let record = originalRecords.find(r => r.id == recordId);
         
+        // If not found in current list, fetch it directly
         if (!record) {
-            alert('Could not find record details.');
-            return;
+            try {
+                const data = await searchRecords({ id: recordId });
+                if (data.results && data.results.length > 0) {
+                    record = data.results[0];
+                    // Temporarily add to originalRecords so other functions can find it
+                    if (!originalRecords.some(r => r.id == recordId)) {
+                        originalRecords.push(record);
+                    }
+                } else {
+                    alert('Could not find record details.');
+                    return;
+                }
+            } catch (error) {
+                alert(`Error fetching record details: ${error.message}`);
+                return;
+            }
         }
+
 
         currentRecordForFamily = record;
         editRecordIdInput.value = record.id;
@@ -1139,31 +1165,13 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleDownloadEventCSV() {
         const eventId = eventDataSelect.value;
         if (!eventId) return;
-        try {
-            const data = await getRecordsForEventDataTable(eventId);
-            if (data.length > 0) {
-                const csv = convertToCSV(data);
-                const eventName = eventDataSelect.options[eventDataSelect.selectedIndex].text;
-                downloadCSV(csv, `event_${eventName.replace(/ /g, '_')}_data.csv`);
-            }
-        } catch (error) {
-            alert(`Failed to download CSV: ${error.message}`);
-        }
+        window.open(`${API_BASE_URL}/api/events/${eventId}/records/?format=csv`, '_blank');
     }
 
     async function handleDownloadBatchCSV() {
         const batchId = batchDataSelect.value;
         if (!batchId) return;
-        try {
-            const data = await getRecordsForBatchDataTable(batchId);
-             if (data.length > 0) {
-                const csv = convertToCSV(data);
-                const batchName = batchDataSelect.options[batchDataSelect.selectedIndex].text;
-                downloadCSV(csv, `batch_${batchName.replace(/ /g, '_')}_data.csv`);
-            }
-        } catch (error) {
-            alert(`Failed to download CSV: ${error.message}`);
-        }
+        window.open(`${API_BASE_URL}/api/batches/${batchId}/records/?format=csv`, '_blank');
     }
 
     function convertToCSV(data) {
@@ -1246,16 +1254,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = typeof pageOrUrl === 'string' ? pageOrUrl : null;
         
         searchRecords(url || params).then(data => { 
+            originalRecords = data.results; // Store for the view button
             if (!data.results || data.results.length === 0) { 
                 relContentContainer.innerHTML = `<p class="text-gray-600">No records found with status: ${status}.</p>`; 
                 return; 
             } 
             const listContainer = document.createElement('div'); 
-            listContainer.className = 'space-y-4'; 
+            listContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'; 
             data.results.forEach(record => { 
-                const card = document.createElement('div'); 
-                card.className = 'result-card'; 
-                card.innerHTML = ` <h3>${record.naam}</h3> <p><strong>Voter No:</strong> ${record.voter_no || 'N/A'}</p> <p><strong>Father's Name:</strong> ${record.pitar_naam || 'N/A'}</p> <p><strong>Address:</strong> ${record.thikana || 'N/A'}</p> <p><strong>Batch:</strong> ${record.batch_name}</p> `; 
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded-lg shadow-md flex space-x-4 items-start';
+                const safeText = (text) => text || '<span class="text-gray-400">N/A</span>';
+                card.innerHTML = `
+                    <img src="${record.photo_link}" alt="Voter Photo" class="w-20 h-20 rounded-md object-cover" onerror="this.onerror=null;this.src='https://placehold.co/100x100/EEE/31343C?text=No+Image';">
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-md font-bold text-gray-800">${safeText(record.naam)}</h3>
+                            <button class="view-profile-btn text-gray-400 hover:text-blue-600" data-record-id="${record.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Voter No: ${safeText(record.voter_no)}</p>
+                        <p class="text-sm text-gray-500">Batch: ${safeText(record.batch_name)}</p>
+                    </div>
+                `;
                 listContainer.appendChild(card); 
             }); 
             relContentContainer.innerHTML = ''; 
@@ -1265,6 +1290,7 @@ document.addEventListener('DOMContentLoaded', () => {
             relContentContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; 
         });
     }
+    
     
     async function displayRelationshipStats() { if (!relContentContainer || !relPaginationContainer) return; relContentContainer.innerHTML = '<p class="text-gray-500">Loading statistics...</p>'; relPaginationContainer.innerHTML = ''; try { const stats = await getRelationshipStats(); let byBatchHtml = '<h3>Distribution by Batch</h3><div class="space-y-4 mt-4">'; const batchData = stats.by_batch.reduce((acc, item) => { if (!acc[item.batch__name]) { acc[item.batch__name] = {}; } acc[item.batch__name][item.relationship_status] = item.count; return acc; }, {}); for (const batchName in batchData) { const counts = batchData[batchName]; byBatchHtml += ` <div class="p-4 border rounded-lg"> <h4 class="font-bold">${batchName}</h4> <div class="flex justify-center space-x-4 mt-2 items-end"> <div class="text-center"> <div class="bg-green-500 text-white text-xs py-1 flex items-center justify-center rounded-t-md" style="height: ${ (counts.Friend || 0) * 10 + 20 }px; width: 60px;">${counts.Friend || 0}</div> <div class="text-xs mt-1">Friend</div> </div> <div class="text-center"> <div class="bg-red-500 text-white text-xs py-1 flex items-center justify-center rounded-t-md" style="height: ${ (counts.Enemy || 0) * 10 + 20 }px; width: 60px;">${counts.Enemy || 0}</div> <div class="text-xs mt-1">Enemy</div> </div> <div class="text-center"> <div class="bg-yellow-500 text-white text-xs py-1 flex items-center justify-center rounded-t-md" style="height: ${ (counts.Connected || 0) * 10 + 20 }px; width: 60px;">${counts.Connected || 0}</div> <div class="text-xs mt-1">Connected</div> </div> </div> </div> `; } byBatchHtml += '</div>'; relContentContainer.innerHTML = byBatchHtml; } catch (error) { relContentContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`; } }
     
@@ -1287,7 +1313,36 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function updateDashboardStats() { try { const stats = await getDashboardStats(); document.getElementById('total-records').textContent = stats.total_records; document.getElementById('total-batches').textContent = stats.total_batches; document.getElementById('total-friends').textContent = stats.friend_count; document.getElementById('total-enemies').textContent = stats.enemy_count; } catch (error) { console.error('Failed to update dashboard stats:', error); } }
     async function populateBatchDropdown() { if (!addRecordBatchSelect) return; try { const batchesData = await getBatches(); const batches = batchesData.results; addRecordBatchSelect.innerHTML = '<option value="">Select a Batch (Required)</option>'; batches.forEach(batch => { const option = document.createElement('option'); option.value = batch.id; option.textContent = batch.name; addRecordBatchSelect.appendChild(option); }); } catch (error) { console.error('Failed to populate batches:', error); } }
-    function initializeRelationshipsPage() { if (!relTabs.length) return; handleRelTabClick(document.querySelector('.rel-tab-button[data-status="Friend"]')); }
+    
+    async function initializeRelationshipsPage() {
+        if (!relTabs.length) return;
+        
+        try {
+            const stats = await getRelationshipStats();
+            const counts = stats.overall.reduce((acc, item) => {
+                acc[item.relationship_status] = item.count;
+                return acc;
+            }, {});
+
+            const friendBadge = document.getElementById('friend-count-badge');
+            const enemyBadge = document.getElementById('enemy-count-badge');
+            const connectedBadge = document.getElementById('connected-count-badge');
+
+            friendBadge.textContent = counts.Friend || 0;
+            enemyBadge.textContent = counts.Enemy || 0;
+            connectedBadge.textContent = counts.Connected || 0;
+
+            friendBadge.classList.remove('hidden');
+            enemyBadge.classList.remove('hidden');
+            connectedBadge.classList.remove('hidden');
+
+        } catch (error) {
+            console.error("Could not load relationship counts", error);
+        }
+
+        handleRelTabClick(document.querySelector('.rel-tab-button[data-status="Friend"]'));
+    }
+
     async function initializeAllDataPage() { if (!allDataTableContainer || !allDataFileSelect || !allDataStatus || !allDataBatchSelect) return; allDataTableContainer.innerHTML = ''; allDataFileSelect.innerHTML = '<option value="">Select a Batch First</option>'; allDataStatus.innerHTML = ''; originalRecords = []; try { const batchesData = await getBatches(); const batches = batchesData.results; allDataBatchSelect.innerHTML = '<option value="">Select a Batch</option>'; batches.forEach(batch => { const option = document.createElement('option'); option.value = batch.id; option.textContent = batch.name; allDataBatchSelect.appendChild(option); }); } catch (error) { console.error('Failed to initialize All Data page:', error); allDataBatchSelect.innerHTML = '<option value="">Error loading batches</option>'; } }
     
     async function initializeAnalysisPage() {
