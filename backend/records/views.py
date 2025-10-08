@@ -172,20 +172,40 @@ class RelationshipStatsView(APIView):
 class AnalysisStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     def get(self, request, format=None):
-        professions = Record.objects.filter(pesha__isnull=False).exclude(pesha__exact='').values('pesha').annotate(count=models.Count('pesha')).order_by('-count')
+        batch_id = request.query_params.get('batch_id')
+
+        queryset = Record.objects.all()
+        if batch_id:
+            queryset = queryset.filter(batch_id=batch_id)
+
+        professions = queryset.filter(pesha__isnull=False).exclude(pesha__exact='').values('pesha').annotate(count=models.Count('pesha')).order_by('-count')
         top_professions = list(professions[:10])
         other_count = sum(p['count'] for p in professions[10:])
         if other_count > 0:
             top_professions.append({'pesha': 'Others', 'count': other_count})
-        genders = Record.objects.filter(gender__isnull=False).exclude(gender__exact='').values('gender').annotate(count=models.Count('gender'))
-        age_groups = Record.objects.aggregate(
+            
+        genders = queryset.filter(gender__isnull=False).exclude(gender__exact='').values('gender').annotate(count=models.Count('gender'))
+        
+        age_groups = queryset.aggregate(
             group_18_25=models.Count(Case(When(age__range=(18, 25), then=Value(1)))),
             group_26_35=models.Count(Case(When(age__range=(26, 35), then=Value(1)))),
             group_36_45=models.Count(Case(When(age__range=(36, 45), then=Value(1)))),
             group_46_60=models.Count(Case(When(age__range=(46, 60), then=Value(1)))),
             group_60_plus=models.Count(Case(When(age__gt=60, then=Value(1)))),
         )
-        return Response({'professions': top_professions, 'genders': list(genders), 'age_groups': age_groups})
+
+        # Add batch distribution only when viewing all batches
+        batch_distribution = []
+        if not batch_id:
+            batch_stats = Record.objects.values('batch__name').annotate(record_count=models.Count('id')).order_by('-record_count')
+            batch_distribution = list(batch_stats)
+
+        return Response({
+            'professions': top_professions, 
+            'genders': list(genders), 
+            'age_groups': age_groups,
+            'batch_distribution': batch_distribution
+        })
 
 class RecalculateAgesView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -242,3 +262,4 @@ class DeleteAllDataView(APIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

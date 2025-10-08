@@ -4,6 +4,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentAllDataParams = {};
     let currentRecordForFamily = null; 
     let selectedRelativeForFamily = null; 
+    let professionChart = null;
+    let genderChart = null;
+    let ageChart = null;
+    let batchChart = null;
 
     // --- Global Element References ---
     const loginScreen = document.getElementById('login-screen');
@@ -116,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const relTabs = document.querySelectorAll('.rel-tab-button');
     const relContentContainer = document.getElementById('relationships-content');
     const relPaginationContainer = document.getElementById('relationships-pagination');
+    const analysisBatchSelect = document.getElementById('analysis-batch-select');
     const analysisContent = document.getElementById('analysis-content');
     const recalculateAgesButton = document.getElementById('recalculate-ages-button');
     const ageRecalculationStatus = document.getElementById('age-recalculation-status');
@@ -172,6 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addCallLogForm) addCallLogForm.addEventListener('submit', handleAddCallLog);
     if (addEventForm) addEventForm.addEventListener('submit', handleAddEvent);
     if (filterByEventButton) filterByEventButton.addEventListener('click', () => handleFilterByEvent());
+    if (analysisBatchSelect) analysisBatchSelect.addEventListener('change', () => loadAnalysisCharts(analysisBatchSelect.value));
+
     
     // Data Management Listeners
     if (dmBatchSelect) dmBatchSelect.addEventListener('change', handleDMFileSelectChange);
@@ -1080,11 +1087,104 @@ document.addEventListener('DOMContentLoaded', () => {
     async function populateBatchDropdown() { if (!addRecordBatchSelect) return; try { const batchesData = await getBatches(); const batches = batchesData.results; addRecordBatchSelect.innerHTML = '<option value="">Select a Batch (Required)</option>'; batches.forEach(batch => { const option = document.createElement('option'); option.value = batch.id; option.textContent = batch.name; addRecordBatchSelect.appendChild(option); }); } catch (error) { console.error('Failed to populate batches:', error); } }
     function initializeRelationshipsPage() { if (!relTabs.length) return; handleRelTabClick(document.querySelector('.rel-tab-button[data-status="Friend"]')); }
     async function initializeAllDataPage() { if (!allDataTableContainer || !allDataFileSelect || !allDataStatus || !allDataBatchSelect) return; allDataTableContainer.innerHTML = ''; allDataFileSelect.innerHTML = '<option value="">Select a Batch First</option>'; allDataStatus.innerHTML = ''; originalRecords = []; try { const batchesData = await getBatches(); const batches = batchesData.results; allDataBatchSelect.innerHTML = '<option value="">Select a Batch</option>'; batches.forEach(batch => { const option = document.createElement('option'); option.value = batch.id; option.textContent = batch.name; allDataBatchSelect.appendChild(option); }); } catch (error) { console.error('Failed to initialize All Data page:', error); allDataBatchSelect.innerHTML = '<option value="">Error loading batches</option>'; } }
-    async function initializeAnalysisPage() { const contentEl = document.getElementById('analysis-content'); if (!contentEl) return; contentEl.innerHTML = '<p class="text-gray-500">Loading analysis data...</p>'; try { const stats = await getAnalysisStats(); contentEl.innerHTML = ''; renderProfessionChart(stats.professions); renderGenderChart(stats.genders); renderAgeChart(stats.age_groups, 'age-chart-container'); } catch (error) { contentEl.innerHTML = `<p class="text-red-500">Failed to load analysis data: ${error.message}</p>`; } }
+    
+    async function initializeAnalysisPage() {
+        if (!analysisBatchSelect) return;
+        analysisBatchSelect.innerHTML = '<option value="">All Batches</option>'; // Reset
+        try {
+            const batchesData = await getBatches();
+            const batches = batchesData.results;
+            batches.forEach(batch => {
+                const option = document.createElement('option');
+                option.value = batch.id;
+                option.textContent = batch.name;
+                analysisBatchSelect.appendChild(option);
+            });
+            // Initial load for all batches
+            loadAnalysisCharts();
+        } catch (error) {
+            analysisContent.innerHTML = `<p class="text-red-500">Failed to load batches for filtering: ${error.message}</p>`;
+        }
+    }
+
+    async function loadAnalysisCharts(batchId = null) {
+        if (!analysisContent) return;
+        analysisContent.innerHTML = '<p class="text-gray-500">Loading analysis data...</p>';
+        try {
+            const stats = await getAnalysisStats(batchId);
+            analysisContent.innerHTML = `
+                <div class="bg-white p-4 rounded-lg shadow-md">
+                    <canvas id="profession-chart-container"></canvas>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md">
+                    <canvas id="gender-chart-container"></canvas>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-md lg:col-span-2">
+                     <canvas id="age-chart-container"></canvas>
+                </div>
+                <div id="batch-distribution-container" class="bg-white p-4 rounded-lg shadow-md lg:col-span-2">
+                     <canvas id="batch-chart-container"></canvas>
+                </div>
+            `;
+            renderProfessionChart(stats.professions);
+            renderGenderChart(stats.genders);
+            renderAgeChart(stats.age_groups);
+            
+            const batchContainer = document.getElementById('batch-distribution-container');
+            if (!batchId && stats.batch_distribution && stats.batch_distribution.length > 0) {
+                batchContainer.style.display = 'block';
+                renderBatchChart(stats.batch_distribution);
+            } else {
+                batchContainer.style.display = 'none';
+            }
+
+        } catch (error) {
+            analysisContent.innerHTML = `<p class="text-red-500">Failed to load analysis data: ${error.message}</p>`;
+        }
+    }
+    
+    function renderProfessionChart(professionData) {
+        const container = document.getElementById('profession-chart-container');
+        if (!container || !professionData || professionData.length === 0) { if (container) container.innerHTML = '<p class="text-gray-500">No profession data available.</p>'; return; }
+        const canvas = container;
+        if (professionChart) professionChart.destroy();
+        const labels = professionData.map(p => p.pesha);
+        const data = professionData.map(p => p.count);
+        professionChart = new Chart(canvas.getContext('2d'), { type: 'doughnut', data: { labels: labels, datasets: [{ label: 'Professions', data: data, backgroundColor: ['#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', '#D946EF', '#FBBF24', '#34D399'], hoverOffset: 4 }] }, options: { responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Voter Distribution by Profession' } } } });
+    }
+
+    function renderGenderChart(genderData) {
+        const container = document.getElementById('gender-chart-container');
+        if (!container || !genderData || genderData.length === 0) { if (container) container.innerHTML = '<p class="text-gray-500">No gender data available.</p>'; return; }
+        const canvas = container;
+        if (genderChart) genderChart.destroy();
+        const labels = genderData.map(g => g.gender || 'Not Specified');
+        const data = genderData.map(g => g.count);
+        genderChart = new Chart(canvas.getContext('2d'), { type: 'pie', data: { labels: labels, datasets: [{ label: 'Genders', data: data, backgroundColor: ['#3B82F6', '#EC4899', '#6B7280'], hoverOffset: 4 }] }, options: { responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Voter Distribution by Gender' } } } });
+    }
+
+    function renderAgeChart(ageData) {
+        const container = document.getElementById('age-chart-container');
+        if (!container || !ageData) { if (container) container.innerHTML = '<p class="text-gray-500">No age data available.</p>'; return; }
+        const canvas = container;
+        if (ageChart) ageChart.destroy();
+        const labels = ['18-25', '26-35', '36-45', '46-60', '60+'];
+        const data = [ageData.group_18_25, ageData.group_26_35, ageData.group_36_45, ageData.group_46_60, ageData.group_60_plus];
+        ageChart = new Chart(canvas.getContext('2d'), { type: 'bar', data: { labels: labels, datasets: [{ label: 'Number of Voters', data: data, backgroundColor: '#10B981' }] }, options: { responsive: true, plugins: { legend: { display: false }, title: { display: true, text: 'Voter Distribution by Age Group' } }, scales: { y: { beginAtZero: true } } } });
+    }
+
+    function renderBatchChart(batchData) {
+        const container = document.getElementById('batch-chart-container');
+        if (!container || !batchData || batchData.length === 0) { if (container) container.innerHTML = '<p class="text-gray-500">No batch data available.</p>'; return; }
+        const canvas = container;
+        if (batchChart) batchChart.destroy();
+        const labels = batchData.map(b => b.batch__name);
+        const data = batchData.map(b => b.record_count);
+        batchChart = new Chart(canvas.getContext('2d'), { type: 'bar', data: { labels: labels, datasets: [{ label: 'Number of Records', data: data, backgroundColor: '#6366F1' }] }, options: { responsive: true, plugins: { legend: { display: false }, title: { display: true, text: 'Record Distribution by Batch' } }, scales: { y: { beginAtZero: true } } } });
+    }
+    
     async function initializeAgeManagementPage() { if (ageRecalculationStatus) ageRecalculationStatus.innerHTML = ''; try { const stats = await getAnalysisStats(); renderAgeChart(stats.age_groups, 'age-management-chart-container'); } catch (error) { const container = document.getElementById('age-management-chart-container'); if (container) container.parentElement.innerHTML = `<p class="text-red-500">Failed to load age chart: ${error.message}</p>`; } }
-    function renderProfessionChart(professionData) { const container = document.getElementById('profession-chart-container'); if (!container || !professionData || professionData.length === 0) { if (container) container.innerHTML = '<p class="text-gray-500">No profession data available.</p>'; return; } const canvas = container.getContext('2d'); if (Chart.getChart(canvas)) { Chart.getChart(canvas).destroy(); } const labels = professionData.map(p => p.pesha); const data = professionData.map(p => p.count); new Chart(canvas, { type: 'doughnut', data: { labels: labels, datasets: [{ label: 'Professions', data: data, backgroundColor: ['#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', '#D946EF', '#FBBF24', '#34D399'], hoverOffset: 4 }] }, options: { responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Voter Distribution by Profession' } } } }); }
-    function renderGenderChart(genderData) { const container = document.getElementById('gender-chart-container'); if (!container || !genderData || genderData.length === 0) { if (container) container.innerHTML = '<p class="text-gray-500">No gender data available.</p>'; return; } const canvas = container.getContext('2d'); if (Chart.getChart(canvas)) { Chart.getChart(canvas).destroy(); } const labels = genderData.map(g => g.gender); const data = genderData.map(g => g.count); new Chart(canvas, { type: 'pie', data: { labels: labels, datasets: [{ label: 'Genders', data: data, backgroundColor: ['#3B82F6', '#EC4899', '#6B7280'], hoverOffset: 4 }] }, options: { responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Voter Distribution by Gender' } } } }); }
-    function renderAgeChart(ageData, containerId) { const container = document.getElementById(containerId); if (!container || !ageData) { if (container) container.innerHTML = '<p class="text-gray-500">No age data available.</p>'; return; } const canvas = container.getContext('2d'); if (Chart.getChart(canvas)) { Chart.getChart(canvas).destroy(); } const labels = ['18-25', '26-35', '36-45', '46-60', '60+']; const data = [ageData.group_18_25, ageData.group_26_35, ageData.group_36_45, ageData.group_46_60, ageData.group_60_plus]; new Chart(canvas, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Number of Voters', data: data, backgroundColor: '#10B981' }] }, options: { responsive: true, plugins: { legend: { display: false }, title: { display: true, text: 'Voter Distribution by Age Group' } }, scales: { y: { beginAtZero: true } } } }); }
+
     function initializeFamilyTreePage() { if (familyMainSearchInput) familyMainSearchInput.value = ''; if (familyMainSearchResults) familyMainSearchResults.innerHTML = ''; if (familyManagementSection) familyManagementSection.classList.add('hidden'); if (familyRelativeSearchInput) familyRelativeSearchInput.value = ''; if (familyRelativeSearchResults) familyRelativeSearchResults.innerHTML = ''; if (familyAddForm) familyAddForm.classList.add('hidden'); selectedPersonId = null; selectedRelativeId = null; }
     function initializeCallHistoryPage() { if (callHistorySearchInput) callHistorySearchInput.value = ''; if (callHistorySearchResults) callHistorySearchResults.innerHTML = ''; if (callHistoryManagementSection) callHistoryManagementSection.classList.add('hidden'); if(addCallLogForm) addCallLogForm.reset(); if(callLogStatus) callLogStatus.textContent = ''; selectedPersonForCallHistory = null; }
 
@@ -1112,3 +1212,4 @@ document.addEventListener('DOMContentLoaded', () => {
     
     init();
 });
+

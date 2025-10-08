@@ -164,11 +164,16 @@ async function getRelationshipStats() {
     return response.json();
 }
 
-async function getAnalysisStats() {
+async function getAnalysisStats(batchId = null) {
     const token = localStorage.getItem('authToken');
     if (!token) throw new Error('Authentication token not found.');
 
-    const response = await fetch(`${API_BASE_URL}/api/analysis-stats/`, {
+    let url = `${API_BASE_URL}/api/analysis-stats/`;
+    if (batchId) {
+        url += `?batch_id=${batchId}`;
+    }
+
+    const response = await fetch(url, {
         headers: { 'Authorization': `Token ${token}` },
     });
     if (!response.ok) throw new Error('Failed to fetch analysis stats.');
@@ -364,3 +369,4 @@ async function deleteAllData() {
     }
     return response.json();
 }
+

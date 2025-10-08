@@ -342,6 +342,20 @@
                 <!-- Analysis Page -->
                 <section id="analysis-page" class="hidden">
                     <h2 class="text-3xl font-bold text-gray-800 mb-6">Data Analysis</h2>
+                    
+                    <!-- Filter Controls -->
+                    <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+                        <div class="flex items-center space-x-4">
+                            <div>
+                                <label for="analysis-batch-select" class="block text-sm font-medium text-gray-700">Filter by Batch</label>
+                                <select id="analysis-batch-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="">All Batches</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Containers -->
                     <div id="analysis-content" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="bg-white p-4 rounded-lg shadow-md">
                             <canvas id="profession-chart-container"></canvas>
@@ -351,6 +365,9 @@
                         </div>
                         <div class="bg-white p-4 rounded-lg shadow-md lg:col-span-2">
                              <canvas id="age-chart-container"></canvas>
+                        </div>
+                        <div id="batch-distribution-container" class="bg-white p-4 rounded-lg shadow-md lg:col-span-2">
+                             <canvas id="batch-chart-container"></canvas>
                         </div>
                     </div>
                 </section>
@@ -652,3 +669,4 @@
     <script src="/static/js/additional.js"></script>
 </body>
 </html>
+
