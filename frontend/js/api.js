@@ -370,3 +370,23 @@ async function deleteAllData() {
     return response.json();
 }
 
+// --- NEW API FUNCTIONS FOR DATA TABLES ---
+async function getRecordsForEventDataTable(eventId) {
+    const token = localStorage.getItem('authToken');
+    if (!token) throw new Error('Authentication token not found.');
+    const response = await fetch(`${API_BASE_URL}/api/events/${eventId}/records/`, {
+        headers: { 'Authorization': `Token ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to fetch records for the event table.');
+    return response.json();
+}
+
+async function getRecordsForBatchDataTable(batchId) {
+    const token = localStorage.getItem('authToken');
+    if (!token) throw new Error('Authentication token not found.');
+    const response = await fetch(`${API_BASE_URL}/api/batches/${batchId}/records/`, {
+        headers: { 'Authorization': `Token ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to fetch records for the batch table.');
+    return response.json();
+}

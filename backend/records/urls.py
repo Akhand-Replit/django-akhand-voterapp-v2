@@ -4,7 +4,7 @@ from .views import (
     BatchViewSet, RecordViewSet, DashboardStatsView, UploadDataView, 
     RelationshipStatsView, AnalysisStatsView, RecalculateAgesView,
     FamilyRelationshipViewSet, CallHistoryViewSet, EventViewSet,
-    DeleteAllDataView
+    DeleteAllDataView, RecordsByEventView, RecordsByBatchView
 )
 
 router = DefaultRouter()
@@ -22,5 +22,10 @@ urlpatterns = [
     path('analysis-stats/', AnalysisStatsView.as_view(), name='analysis-stats'),
     path('recalculate-ages/', RecalculateAgesView.as_view(), name='recalculate-ages'),
     path('delete-all-data/', DeleteAllDataView.as_view(), name='delete-all-data'),
+    
+    # --- NEW URLS FOR DATA TABLES ---
+    path('events/<int:event_id>/records/', RecordsByEventView.as_view(), name='event-records-list'),
+    path('batches/<int:batch_id>/records/', RecordsByBatchView.as_view(), name='batch-records-list'),
+
     path('', include(router.urls)),
 ]

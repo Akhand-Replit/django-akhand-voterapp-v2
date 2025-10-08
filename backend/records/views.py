@@ -8,8 +8,9 @@ from .text_parser import parse_voter_text_file, calculate_age
 from rest_framework.decorators import action
 from django.db.models import Case, When, Value, IntegerField
 from django.core.cache import cache
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, HttpResponse
 import json
+import csv
 
 from .models import Batch, Record, FamilyRelationship , CallHistory, Event
 from .serializers import (
@@ -263,3 +264,50 @@ class DeleteAllDataView(APIView):
         except Exception as e:
             return Response({"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# --- NEW VIEWS FOR DATA TABLES ---
+
+class RecordsByEventView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, event_id):
+        records = Record.objects.filter(events__id=event_id).select_related('batch').order_by('id')
+        
+        if request.query_params.get('format') == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="event_{event_id}_records.csv"'
+            
+            writer = csv.writer(response)
+            # Write headers
+            headers = [field.name for field in Record._meta.fields]
+            writer.writerow(headers)
+            
+            # Write data
+            for record in records:
+                writer.writerow([getattr(record, field) for field in headers])
+            return response
+
+        serializer = RecordSerializer(records, many=True)
+        return Response(serializer.data)
+
+class RecordsByBatchView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, batch_id):
+        records = Record.objects.filter(batch_id=batch_id).select_related('batch').order_by('id')
+
+        if request.query_params.get('format') == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="batch_{batch_id}_records.csv"'
+
+            writer = csv.writer(response)
+            # Write headers
+            headers = [field.name for field in Record._meta.fields]
+            writer.writerow(headers)
+
+            # Write data
+            for record in records:
+                writer.writerow([getattr(record, field) for field in headers])
+            return response
+
+        serializer = RecordSerializer(records, many=True)
+        return Response(serializer.data)

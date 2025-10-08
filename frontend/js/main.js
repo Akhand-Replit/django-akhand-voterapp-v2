@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
         datamanagement: document.getElementById('nav-datamanagement'),
         events: document.getElementById('nav-events'),
         eventcollector: document.getElementById('nav-event-collector'),
+        eventdatatable: document.getElementById('nav-eventdatatable'), // New
+        batchdatatable: document.getElementById('nav-batchdatatable'), // New
         relationships: document.getElementById('nav-relationships'),
         analysis: document.getElementById('nav-analysis'),
         age: document.getElementById('nav-age'),
@@ -43,6 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
         datamanagement: document.getElementById('datamanagement-page'),
         events: document.getElementById('events-page'),
         eventcollector: document.getElementById('event-collector-page'),
+        eventdatatable: document.getElementById('eventdatatable-page'), // New
+        batchdatatable: document.getElementById('batchdatatable-page'), // New
         relationships: document.getElementById('relationships-page'),
         analysis: document.getElementById('analysis-page'),
         age: document.getElementById('age-page'),
@@ -77,6 +81,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const dmBatchDeleteSelect = document.getElementById('dm-batch-delete-select');
     const deleteBatchBtn = document.getElementById('delete-batch-btn');
     const deleteAllBtn = document.getElementById('delete-all-btn');
+
+    // --- NEW: Event Data Table Page Elements ---
+    const eventDataSelect = document.getElementById('event-data-select');
+    const downloadEventCsvBtn = document.getElementById('download-event-csv-btn');
+    const eventDataTableContainer = document.getElementById('event-data-table-container');
+
+    // --- NEW: Batch Data Table Page Elements ---
+    const batchDataSelect = document.getElementById('batch-data-select');
+    const downloadBatchCsvBtn = document.getElementById('download-batch-csv-btn');
+    const batchDataTableContainer = document.getElementById('batch-data-table-container');
     
     // Edit Modal Elements
     const editRecordModal = document.getElementById('edit-record-modal');
@@ -178,6 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addEventForm) addEventForm.addEventListener('submit', handleAddEvent);
     if (filterByEventButton) filterByEventButton.addEventListener('click', () => handleFilterByEvent());
     if (analysisBatchSelect) analysisBatchSelect.addEventListener('change', () => loadAnalysisCharts(analysisBatchSelect.value));
+
+    // --- NEW: Data Table Page Listeners ---
+    if (eventDataSelect) eventDataSelect.addEventListener('change', handleEventDataSelectChange);
+    if (downloadEventCsvBtn) downloadEventCsvBtn.addEventListener('click', handleDownloadEventCSV);
+    if (batchDataSelect) batchDataSelect.addEventListener('change', handleBatchDataSelectChange);
+    if (downloadBatchCsvBtn) downloadBatchCsvBtn.addEventListener('click', handleDownloadBatchCSV);
 
     
     // Data Management Listeners
@@ -1007,6 +1027,185 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- NEW: Data Table Page Functions ---
+
+    async function initializeEventDataTablePage() {
+        if (!eventDataSelect) return;
+        eventDataSelect.innerHTML = '<option value="">Loading events...</option>';
+        try {
+            const eventsData = await getEvents();
+            const events = eventsData.results;
+            eventDataSelect.innerHTML = '<option value="">Select an Event</option>';
+            events.forEach(event => {
+                const option = document.createElement('option');
+                option.value = event.id;
+                option.textContent = event.name;
+                eventDataSelect.appendChild(option);
+            });
+        } catch (error) {
+            eventDataSelect.innerHTML = '<option value="">Error loading events</option>';
+        }
+    }
+
+    async function initializeBatchDataTablePage() {
+        if (!batchDataSelect) return;
+        batchDataSelect.innerHTML = '<option value="">Loading batches...</option>';
+        try {
+            const batchesData = await getBatches();
+            const batches = batchesData.results;
+            batchDataSelect.innerHTML = '<option value="">Select a Batch</option>';
+            batches.forEach(batch => {
+                const option = document.createElement('option');
+                option.value = batch.id;
+                option.textContent = batch.name;
+                batchDataSelect.appendChild(option);
+            });
+        } catch (error) {
+            batchDataSelect.innerHTML = '<option value="">Error loading batches</option>';
+        }
+    }
+
+    async function handleEventDataSelectChange() {
+        const eventId = eventDataSelect.value;
+        downloadEventCsvBtn.disabled = true;
+        if (!eventId) {
+            eventDataTableContainer.innerHTML = '<p class="p-4 text-gray-500">Please select an event to view data.</p>';
+            return;
+        }
+        eventDataTableContainer.innerHTML = '<p class="p-4 text-gray-500">Loading data...</p>';
+        try {
+            const data = await getRecordsForEventDataTable(eventId);
+            renderDataTable(eventDataTableContainer, data);
+            downloadEventCsvBtn.disabled = data.length === 0;
+        } catch (error) {
+            eventDataTableContainer.innerHTML = `<p class="p-4 text-red-500">${error.message}</p>`;
+        }
+    }
+
+    async function handleBatchDataSelectChange() {
+        const batchId = batchDataSelect.value;
+        downloadBatchCsvBtn.disabled = true;
+        if (!batchId) {
+            batchDataTableContainer.innerHTML = '<p class="p-4 text-gray-500">Please select a batch to view data.</p>';
+            return;
+        }
+        batchDataTableContainer.innerHTML = '<p class="p-4 text-gray-500">Loading data...</p>';
+        try {
+            const data = await getRecordsForBatchDataTable(batchId);
+            renderDataTable(batchDataTableContainer, data);
+            downloadBatchCsvBtn.disabled = data.length === 0;
+        } catch (error) {
+            batchDataTableContainer.innerHTML = `<p class="p-4 text-red-500">${error.message}</p>`;
+        }
+    }
+
+    function renderDataTable(container, records) {
+        container.innerHTML = '';
+        if (!records || records.length === 0) {
+            container.innerHTML = '<p class="p-4 text-gray-600">No records found for this selection.</p>';
+            return;
+        }
+        const table = document.createElement('table');
+        table.className = 'min-w-full divide-y divide-gray-200';
+        const headers = Object.keys(records[0]).filter(h => h !== 'events'); // Exclude 'events' array
+        
+        const thead = `
+            <thead class="bg-gray-50">
+                <tr>
+                    ${headers.map(h => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${h.replace(/_/g, ' ')}</th>`).join('')}
+                </tr>
+            </thead>
+        `;
+        
+        const tbody = document.createElement('tbody');
+        tbody.className = 'bg-white divide-y divide-gray-200';
+        records.forEach(record => {
+            const row = document.createElement('tr');
+            row.innerHTML = headers.map(header => {
+                let value = record[header];
+                if (Array.isArray(value)) {
+                    value = value.join(', ');
+                }
+                return `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${value || ''}</td>`;
+            }).join('');
+            tbody.appendChild(row);
+        });
+
+        table.innerHTML = thead;
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+
+    async function handleDownloadEventCSV() {
+        const eventId = eventDataSelect.value;
+        if (!eventId) return;
+        try {
+            const data = await getRecordsForEventDataTable(eventId);
+            if (data.length > 0) {
+                const csv = convertToCSV(data);
+                const eventName = eventDataSelect.options[eventDataSelect.selectedIndex].text;
+                downloadCSV(csv, `event_${eventName.replace(/ /g, '_')}_data.csv`);
+            }
+        } catch (error) {
+            alert(`Failed to download CSV: ${error.message}`);
+        }
+    }
+
+    async function handleDownloadBatchCSV() {
+        const batchId = batchDataSelect.value;
+        if (!batchId) return;
+        try {
+            const data = await getRecordsForBatchDataTable(batchId);
+             if (data.length > 0) {
+                const csv = convertToCSV(data);
+                const batchName = batchDataSelect.options[batchDataSelect.selectedIndex].text;
+                downloadCSV(csv, `batch_${batchName.replace(/ /g, '_')}_data.csv`);
+            }
+        } catch (error) {
+            alert(`Failed to download CSV: ${error.message}`);
+        }
+    }
+
+    function convertToCSV(data) {
+        if (data.length === 0) return '';
+        const headers = Object.keys(data[0]);
+        const csvRows = [headers.join(',')];
+        for (const row of data) {
+            const values = headers.map(header => {
+                let value = row[header];
+                if (value === null || value === undefined) {
+                    return '';
+                }
+                if (Array.isArray(value)) {
+                    value = `"${value.join('; ')}"`; // Join array elements and quote
+                } else {
+                     value = String(value).replace(/"/g, '""'); // Escape double quotes
+                    if (String(value).includes(',')) {
+                        value = `"${value}"`; // Quote fields with commas
+                    }
+                }
+                return value;
+            });
+            csvRows.push(values.join(','));
+        }
+        return csvRows.join('\n');
+    }
+
+    function downloadCSV(csv, filename) {
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+
+
     function navigateTo(pageName) {
         if (!pages[pageName]) return;
         Object.values(pages).forEach(page => page && page.classList.add('hidden'));
@@ -1029,6 +1228,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageName === 'callhistory') initializeCallHistoryPage();
         if (pageName === 'eventcollector') initializeEventCollectorPage();
         if (pageName === 'datamanagement') initializeDataManagementPage();
+        // --- NEW ---
+        if (pageName === 'eventdatatable') initializeEventDataTablePage();
+        if (pageName === 'batchdatatable') initializeBatchDataTablePage();
     }
 
     function displayPaginationControls(container, prevUrl, nextUrl, callback) { if (!container) return; container.innerHTML = ''; const prevButton = document.createElement('button'); prevButton.textContent = 'Previous'; prevButton.className = 'px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed'; prevButton.disabled = !prevUrl; prevButton.addEventListener('click', () => callback(prevUrl)); const nextButton = document.createElement('button'); nextButton.textContent = 'Next'; nextButton.className = 'px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed'; nextButton.disabled = !nextUrl; nextButton.addEventListener('click', () => callback(nextUrl)); container.appendChild(prevButton); container.appendChild(nextButton); }
@@ -1212,4 +1414,3 @@ document.addEventListener('DOMContentLoaded', () => {
     
     init();
 });
-

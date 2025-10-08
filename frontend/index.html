@@ -69,6 +69,9 @@
                         <li><a href="#" id="nav-datamanagement" class="nav-link">Data Management</a></li>
                         <li><a href="#" id="nav-events" class="nav-link">Event Management</a></li>
                         <li><a href="#" id="nav-event-collector" class="nav-link">Event Data Collector</a></li>
+                        <!-- NEW NAV LINKS -->
+                        <li><a href="#" id="nav-eventdatatable" class="nav-link">Event Data Table</a></li>
+                        <li><a href="#" id="nav-batchdatatable" class="nav-link">Batch Data Table</a></li>
                         <li><a href="#" id="nav-relationships" class="nav-link">Relationships</a></li>
                         <li><a href="#" id="nav-analysis" class="nav-link">Analysis</a></li>
                         <li><a href="#" id="nav-age" class="nav-link">Age Management</a></li>
@@ -321,6 +324,41 @@
                         </div>
                     </div>
                 </section>
+                
+                <!-- NEW: Event Data Table Page -->
+                <section id="eventdatatable-page" class="hidden">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Event Data Table</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <label for="event-data-select" class="block text-sm font-medium text-gray-700">Select Event</label>
+                                <select id="event-data-select" class="mt-1 block w-full pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                            <button id="download-event-csv-btn" class="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition" disabled>Download as CSV</button>
+                        </div>
+                    </div>
+                    <div id="event-data-table-container" class="bg-white p-2 rounded-lg shadow-md overflow-x-auto">
+                        <p class="p-4 text-gray-500">Please select an event to view data.</p>
+                    </div>
+                </section>
+
+                <!-- NEW: Batch Data Table Page -->
+                <section id="batchdatatable-page" class="hidden">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Batch Data Table</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                         <div class="flex justify-between items-center">
+                            <div>
+                                <label for="batch-data-select" class="block text-sm font-medium text-gray-700">Select Batch</label>
+                                <select id="batch-data-select" class="mt-1 block w-full pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                            <button id="download-batch-csv-btn" class="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition" disabled>Download as CSV</button>
+                        </div>
+                    </div>
+                    <div id="batch-data-table-container" class="bg-white p-2 rounded-lg shadow-md overflow-x-auto">
+                        <p class="p-4 text-gray-500">Please select a batch to view data.</p>
+                    </div>
+                </section>
+
 
                 <!-- Relationships Page -->
                 <section id="relationships-page" class="hidden">
@@ -669,4 +707,3 @@
     <script src="/static/js/additional.js"></script>
 </body>
 </html>
-
